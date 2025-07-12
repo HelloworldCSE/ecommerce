@@ -22,7 +22,7 @@ jobs:
         with:
           args: >
             -Dsonar.projectKey=HelloworldCSE_ecommerce
-            -Dsonar.organization=HelloworldCSE
+            -Dsonar.organization=helloworldcse
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
