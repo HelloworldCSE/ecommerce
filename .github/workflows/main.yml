@@ -21,7 +21,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v5.2.0
         with:
           args: >
-            -Dsonar.projectKey=helloworldcse
+            -Dsonar.projectKey=HelloworldCSE_ecommerce
             -Dsonar.organization=HelloworldCSE
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
