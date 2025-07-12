@@ -1,0 +1,25 @@
+name: SonarCloud Scan
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  sonarcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          args: >
+            -Dsonar.projectKey=helloworldcse
+            -Dsonar.organization=HelloworldCSE
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
