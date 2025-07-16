@@ -12,6 +12,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set up Java and Maven
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
@@ -23,15 +29,10 @@ jobs:
       - name: Set SNYK_TOKEN
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Debug current directory and files
-        run: |
-          pwd
-          ls -R
-
-      - name: Run Snyk and overwrite snyk-results.json
+      - name: Run Snyk test and save to reports/snyk-results.json
         run: |
           mkdir -p reports
-          snyk test --all-projects --json-file-output=reports/snyk-results.json || true
+          snyk test --file=pom.xml --json-file-output=reports/snyk-results.json || true
           echo "===== Snyk Output ====="
           cat reports/snyk-results.json
 
