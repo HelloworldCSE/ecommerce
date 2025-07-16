@@ -1,8 +1,8 @@
-name: Snyk Scan and AI Fix
+name: Snyk Vulnerability Extractor
 
 on:
   push:
-    branches: [master]
+    branches: [master]  # use 'main' if your branch is named 'main'
 
 jobs:
   snyk-scan:
@@ -15,45 +15,19 @@ jobs:
       - name: Install Snyk CLI
         run: npm install -g snyk
 
-      - name: Set SNYK_TOKEN
+      - name: Set SNYK_TOKEN environment variable
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run Snyk and save JSON
-        run: snyk test --all-projects --json-file-output=snyk-results.json || true
+      - name: Give execute permission to mvnw (optional but safe for Maven projects)
+        run: |
+          if [ -f "./mvnw" ]; then chmod +x ./mvnw; fi
 
-      - name: Upload vulnerability report
+      - name: Run Snyk and export vulnerabilities
+        run: |
+          snyk test --all-projects --json-file-output=snyk-results.json || true
+
+      - name: Upload Snyk results as artifact
         uses: actions/upload-artifact@v4
         with:
           name: snyk-report
           path: snyk-results.json
-
-  ai-fixer:
-    needs: snyk-scan
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Download Snyk JSON artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: snyk-report
-          path: .
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run AI Fixer Agent
-        run: python run_ai_fix.py snyk-results.json
-
-      - name: Upload Fixed Files
-        uses: actions/upload-artifact@v4
-        with:
-          name: fixed-code
-          path: fixed_*
