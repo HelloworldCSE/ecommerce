@@ -3,16 +3,25 @@ name: Snyk Auto-Update Vulnerability Report
 on:
   push:
     branches: [master]
+    paths:
+      - '**/pom.xml'  # Only trigger when dependency files change
+  pull_request: {}     # Optional: Add PR scanning
 
 jobs:
   snyk-update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for pushing changes
+      security-events: write  # For SARIF upload
 
     steps:
+      # --- 🔧 1. Snyk Integration ---
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Needed for proper git diff
 
-      - name: Set up Java and Maven
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
@@ -22,26 +31,51 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install Snyk CLI
-        run: npm install -g snyk
+        run: npm install -g snyk@latest
 
-      - name: Set SNYK_TOKEN
-        run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
+      - name: Authenticate Snyk
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Run Snyk test and save to reports/snyk-results.json
+      - name: Run Snyk test
+        id: snyk-test
         run: |
           mkdir -p reports
-          snyk test --file=pom.xml --json-file-output=reports/snyk-results.json || true
-          echo "===== Snyk Output ====="
-          cat reports/snyk-results.json
+          snyk test --file=pom.xml \
+            --json-file-output=reports/snyk-results.json \
+            --sarif-file-output=reports/snyk-results.sarif || true
+          echo "Vulnerability count: $(jq '.vulnerabilities | length' reports/snyk-results.json)"
 
-      - name: Commit and push updated snyk-results.json
+      # --- 📂 2. Saving the Report ---
+      - name: Configure Git
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add reports/snyk-results.json
-          git diff --cached --quiet || git commit -m "chore: update Snyk vulnerability report"
-          git push https://x-access-token:${{ secrets.PERSONAL_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add reports/
+          if ! git diff --cached --quiet; then
+            echo "changes_detected=true" >> $GITHUB_OUTPUT
+          fi
+
+      # --- 🚀 3. Secure Push Solution ---
+      - name: Commit and push changes
+        if: steps.changes.outputs.changes_detected == 'true'
+        run: |
+          git commit -m "chore: update Snyk vulnerability report [skip ci]"
+          git push
         env:
-          PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+          # Using PAT as fallback if GITHUB_TOKEN fails
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || secrets.PERSONAL_TOKEN }}
+
+      # --- 🔍 4. Optional Security Alerts ---
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: reports/snyk-results.sarif
