@@ -2,8 +2,7 @@ name: Fetch Snyk Report from Portal # Workflow name
 
 on:
   push:
-    branches:
-      - master # Trigger on push to master branch (change if your main branch is 'main')
+    branches: [master]
 
 jobs:
   fetch-snyk-report:
