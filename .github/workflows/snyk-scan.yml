@@ -1,47 +1,37 @@
-name: Snyk Auto-Update Vulnerability Report
+name: Fetch Snyk Report from Portal # Workflow name
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master # Trigger on push to master branch (change if your main branch is 'main')
 
 jobs:
-  snyk-update:
-    runs-on: ubuntu-latest
+  fetch-snyk-report:
+    runs-on: ubuntu-latest # Run on a fresh Ubuntu environment
+    permissions:
+      contents: write # Grant write access for committing the report
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # Checkout your repository code
 
-      - name: Set up Java and Maven
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+      - uses: actions/setup-node@v4 # Setup Node.js for 'curl' and environment
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      - name: Install Snyk CLI
-        run: npm install -g snyk
-
-      - name: Set SNYK_TOKEN
-        run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
-
-      - name: Run Snyk scan across all projects
-        run: |
-          mkdir -p reports
-          snyk test --all-projects --json-file-output=reports/snyk-results.json || true
-          echo "===== Snyk Output ====="
-          cat reports/snyk-results.json
-
-      - name: Commit and push updated snyk-results.json
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add reports/snyk-results.json
-          git diff --cached --quiet || git commit -m "chore: update Snyk vulnerability report"
-          git push https://x-access-token:${{ secrets.PERSONAL_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
+      - name: Fetch Snyk report via API # Step to call Snyk API
         env:
-          PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }} # Your Snyk API token (GitHub Secret)
+          SNYK_ORG_ID: ${{ secrets.SNYK_ORGANIZATION_ID}} # <<=== CHANGE THIS: Your Snyk Organization ID
+          SNYK_PROJECT_ID: ${{ secrets.SNYK_PROJECT_ID}} # <<=== CHANGE THIS: Your Snyk Project ID
+        run: |
+          mkdir -p reports # Create 'reports' directory
+          # Fetch project issues as JSON; '|| true' allows step to pass even if API returns no issues
+          curl -s -X GET "https://api.snyk.io/rest/orgs/${{ env.SNYK_ORG_ID }}/projects/${{ env.SNYK_PROJECT_ID }}/issues?version=2024-06-03~beta" -H "Authorization: token ${{ env.SNYK_TOKEN }}" -H "Content-Type: application/vnd.api+json" > reports/snyk-results.json || true
+          # Display a warning if report is empty
+          [ -s reports/snyk-results.json ] || echo "Warning: snyk-results.json is empty. Check your IDs and Snyk API access."
+
+      - name: Commit and push report # Commit and push the generated report
+        run: |
+          git config user.name "github-actions[bot]" # Set Git user name for commit
+          git config user.email "github-actions[bot]@users.noreply.github.com" # Set Git user email for commit
+          git add reports/snyk-results.json # Stage the report file
+          git diff-index --quiet HEAD -- || git commit -m "chore: Update Snyk vulnerability report from portal" # Commit only if changes exist
+          git push # Push changes to the repository
