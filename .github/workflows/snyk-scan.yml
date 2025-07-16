@@ -2,9 +2,7 @@ name: Snyk Scan and AI Fix
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   snyk-scan:
