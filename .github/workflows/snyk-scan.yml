@@ -19,13 +19,13 @@ jobs:
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run Snyk and overwrite snyk-results.json
-        run: snyk test --all-projects --json-file-output=Reports/snyk-results.json || true
+        run: snyk test --all-projects --json-file-output=reports/snyk-results.json || true
 
       - name: Commit and push updated snyk-results.json
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add Reports/snyk-results.json
+          git add reports/snyk-results.json
           git diff --cached --quiet || git commit -m "chore: update Snyk vulnerability report"
           git push
         env:
