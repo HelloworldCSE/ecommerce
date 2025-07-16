@@ -2,9 +2,7 @@ name: Snyk Auto-Update Vulnerability Report
 
 on:
   push:
-    branches: [main]  # or 'master', depending on your repo's default branch
-  pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   snyk-update:
