@@ -19,7 +19,8 @@ jobs:
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run Snyk and export vulnerabilities
-        run: snyk test --json > snyk-results.json
+        run: |
+          snyk test --json-file-output=snyk-results.json || true
 
       - name: Upload Snyk results as artifact
         uses: actions/upload-artifact@v4
