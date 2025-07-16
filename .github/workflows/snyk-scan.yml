@@ -1,11 +1,9 @@
 name: Snyk Auto-Update Vulnerability Report
 
+
 on:
   push:
     branches: [master]
-    paths:
-      - '**/pom.xml'  # Only trigger when dependency files change
-  pull_request: {}     # Optional: Add PR scanning
 
 jobs:
   snyk-update:
