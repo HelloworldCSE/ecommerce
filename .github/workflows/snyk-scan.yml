@@ -29,9 +29,11 @@ jobs:
       - name: Set SNYK_TOKEN
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run Snyk test and save to reports/snyk-results.json
+      - name: Run Snyk in correct directory
+        working-directory: .
         run: |
           mkdir -p reports
+          echo "Scanning pom.xml inside: $(pwd)"
           snyk test --file=pom.xml --json-file-output=reports/snyk-results.json || true
           echo "===== Snyk Output ====="
           cat reports/snyk-results.json
