@@ -15,13 +15,11 @@ jobs:
       - name: Install Snyk CLI
         run: npm install -g snyk
 
-      - name: Authenticate Snyk
-        run: echo "${{ secrets.SNYK_TOKEN }}" | snyk auth
+      - name: Set SNYK_TOKEN env variable
+        run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run Snyk and export vulnerabilities
         run: snyk test --json > snyk-results.json
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Upload Snyk results as artifact
         uses: actions/upload-artifact@v4
