@@ -18,7 +18,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
@@ -29,12 +29,10 @@ jobs:
       - name: Set SNYK_TOKEN
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run Snyk in correct directory
-        working-directory: .
+      - name: Run Snyk scan across all projects
         run: |
           mkdir -p reports
-          echo "Scanning pom.xml inside: $(pwd)"
-          snyk test --file=pom.xml --json-file-output=reports/snyk-results.json || true
+          snyk test --all-projects --json-file-output=reports/snyk-results.json || true
           echo "===== Snyk Output ====="
           cat reports/snyk-results.json
 
