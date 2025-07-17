@@ -26,9 +26,17 @@ jobs:
 
       - name: Run Snyk scan and generate report
         run: |
-          snyk test --all-projects --json > snyk-results.json || echo "Scan completed (with or without issues)"
+          snyk test --all-projects --json > snyk-results.json || echo "Scan completed with issues"
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Commit snyk-results.json
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snyk-results.json
+          git commit -m "chore: update Snyk JSON report [skip ci]" || echo "No changes to commit"
+          git push
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -38,12 +46,13 @@ jobs:
       - name: Run summary script
         run: python scripts/summarize_snyk_report.py
 
-      - name: Display file outputs (for debug)
+      - name: Commit snyk-summary.txt
         run: |
-          echo "--- Snyk Report (JSON) ---"
-          cat snyk-results.json || echo "Missing snyk-results.json"
-          echo "--- Snyk Summary (TXT) ---"
-          cat snyk-summary.txt || echo "Missing snyk-summary.txt"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snyk-summary.txt
+          git commit -m "chore: update Snyk summary [skip ci]" || echo "No changes to commit"
+          git push
 
       - name: Upload artifacts (report + summary)
         uses: actions/upload-artifact@v4
@@ -52,11 +61,3 @@ jobs:
           path: |
             snyk-results.json
             snyk-summary.txt
-
-      - name: Commit results to repo
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add snyk-results.json snyk-summary.txt
-          git commit -m "chore: update Snyk reports [skip ci]" || echo "No changes"
-          git push
