@@ -2,13 +2,13 @@ name: Snyk Vulnerability Scan and Summary
 
 on:
   push:
-    branches: [master]  # or main if your branch is named main
+    branches: [master]  # Change to 'main' if applicable
 
 jobs:
   snyk-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -58,7 +58,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add snyk-results.json
           git commit -m "chore: update Snyk JSON report [skip ci]" || echo "No changes to commit"
-          git push
+          git push || echo "No changes to push"
 
       - name: Commit summary report
         run: |
@@ -66,4 +66,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add snyk-summary.txt
           git commit -m "chore: update Snyk summary report [skip ci]" || echo "No changes to commit"
-          git push
+          git push || echo "No changes to push"
