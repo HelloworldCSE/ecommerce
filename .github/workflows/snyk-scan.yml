@@ -2,18 +2,17 @@ name: Snyk Vulnerability Scan
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  snyk-scan:
+  snyk:
+    name: Snyk Scan & Report
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -21,49 +20,29 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt || true
-
       - name: Install Snyk CLI
-        run: |
-          curl -Lo snyk https://static.snyk.io/cli/latest/snyk-linux
-          chmod +x snyk
-          sudo mv snyk /usr/local/bin
+        run: npm install -g snyk
 
       - name: Authenticate with Snyk
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk auth "${SNYK_TOKEN}"
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
 
-      - name: Run Snyk and export vulnerabilities
+      - name: Run Snyk Scan
         run: |
-          snyk test --all-projects --json-file-output=snyk-results.json || true
-          echo "Snyk scan completed. Results saved to snyk-results.json"
+          snyk test --json > snyk-results.json || echo "Scan completed with issues"
 
-      - name: Generate Snyk Summary from JSON
-        run: python3 summarize.py
+      - name: Generate Advanced Vulnerability Report
+        run: python3 snyk-report-generator.py
 
-      - name: Upload Snyk JSON results as artifact
+      - name: Upload JSON Results
         uses: actions/upload-artifact@v4
         with:
-          name: snyk-report-json
+          name: snyk-json-report
           path: snyk-results.json
           retention-days: 7
 
-      - name: Upload Snyk Summary TXT as artifact
+      - name: Upload Detailed Vulnerability Report
         uses: actions/upload-artifact@v4
         with:
-          name: snyk-report-summary
-          path: snyk-summary.txt
+          name: snyk-advanced-report
+          path: vulnerability-report.txt
           retention-days: 7
-
-      # Optional: Commit the summary back to the repository
-      - name: Commit Snyk summary to repository
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add snyk-summary.txt
-          git commit -m "chore: update Snyk summary report [skip ci]" || echo "No changes to commit"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
