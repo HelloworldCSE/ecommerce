@@ -489,7 +489,7 @@
       ],
       "description": "## Overview\n[org.apache.tomcat.embed:tomcat-embed-core](https://mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core) is a Core Tomcat implementation.\n\nAffected versions of this package are vulnerable to Authentication Bypass Using an Alternate Path or Channel due to how `PreResources` or `PostResources` handle pre-resources or post-resources mounted at non-root locations. An attacker can gain unauthorized access to protected resources by crafting requests to unexpected paths that bypass intended security constraints.\n## Remediation\nUpgrade `org.apache.tomcat.embed:tomcat-embed-core` to version 9.0.106, 10.1.42, 11.0.8 or higher.\n## References\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-10.html)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-11.html)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-9.html)\n- [Apache Tomcat Thread](https://lists.apache.org/thread/m66cytbfrty9k7dc4cg6tl1czhsnbywk)\n- [GitHub Commit](https://github.com/apache/tomcat/commit/7617b9c247bc77ed0444dd69adcd8aa48777886c)\n- [GitHub Commit](https://github.com/apache/tomcat/commit/9418e3ff9f1f4c006b4661311ae9376c52d162b9)\n- [GitHub Commit](https://github.com/apache/tomcat/commit/d94bd36fb7eb32e790dae0339bc249069649a637)\n",
       "epssDetails": {
-        "percentile": "0.13125",
+        "percentile": "0.13045",
         "probability": "0.00044",
         "modelVersion": "v2025.03.14"
       },
@@ -637,7 +637,7 @@
       ],
       "description": "## Overview\n[org.apache.tomcat.embed:tomcat-embed-core](https://mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core) is a Core Tomcat implementation.\n\nAffected versions of this package are vulnerable to Integer Overflow or Wraparound via file uploads through servlet containers. An attacker can craft malicious multipart/form-data requests with specially crafted Content-Length headers that trigger integer overflow vulnerabilities, potentially bypassing file size restrictions and causing memory exhaustion.\n## Remediation\nUpgrade `org.apache.tomcat.embed:tomcat-embed-core` to version 9.0.107, 10.1.43, 11.0.9 or higher.\n## References\n- [Apache Advisory](https://lists.apache.org/thread/trqq01bbxw6c92zx69kx2mw2qgmfy0o5)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-9.html)\n- [GitHub Commit](https://github.com/apache/tomcat/commit/927d66fbc294cb65242102b817a45fd80834e040)\n",
       "epssDetails": {
-        "percentile": "0.11285",
+        "percentile": "0.11189",
         "probability": "0.00040",
         "modelVersion": "v2025.03.14"
       },
@@ -785,7 +785,7 @@
       ],
       "description": "## Overview\n[org.apache.tomcat.embed:tomcat-embed-core](https://mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core) is a Core Tomcat implementation.\n\nAffected versions of this package are vulnerable to Allocation of Resources Without Limits or Throttling via HTTP/2 multiplexing feature. an attacker can trigger resource exhaustion by creating excessive HTTP/2 streams within a single TCP connection.\n## Remediation\nUpgrade `org.apache.tomcat.embed:tomcat-embed-core` to version 9.0.107, 10.1.43, 11.0.9 or higher.\n## References\n- [Apache Tomcat Advisory](https://lists.apache.org/thread/p09775q0rd185m6zz98krg0fp45j8kr0)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-10.html)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-11.html)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-9.html)\n- [GitHub Commit](https://github.com/apache/tomcat/commit/434772930f362145516dd60681134e7f0cf8115b)\n",
       "epssDetails": {
-        "percentile": "0.11285",
+        "percentile": "0.11189",
         "probability": "0.00040",
         "modelVersion": "v2025.03.14"
       },
@@ -1049,8 +1049,8 @@
       ],
       "description": "## Overview\n[org.springframework:spring-web](https://github.com/spring-projects/spring-framework) is a package that provides a comprehensive programming and configuration model for modern Java-based enterprise applications - on any kind of deployment platform.\n\nAffected versions of this package are vulnerable to HTTP Response Splitting via the `Content-Disposition` header where the `filename` parameter value could contain non-printable characters, causing parsing issues for HTTP clients. An attacker can cause the download of files containing malicious commands by injecting content into the response.\n\n**Notes:**\n\n1) This is only exploitable if the header is prepared with `org.springframework.http.ContentDisposition`, the filename is set via `ContentDisposition.Builder#filename(String, Charset)`, the value is derived from unsanitized user input, and the attacker can inject malicious content into the downloaded response.\n\n2) The vulnerability was also fixed in the 6.0.29 commercial version.\n## Remediation\nUpgrade `org.springframework:spring-web` to version 6.1.21, 6.2.8 or higher.\n## References\n- [GitHub Commit](https://github.com/spring-projects/spring-framework/commit/f0e7b42704e6b33958f242d91bd690d6ef7ada9c)\n- [GitHub Issue](https://github.com/spring-projects/spring-framework/issues/35034)\n- [Spring Security Advisory](https://spring.io/security/cve-2025-41234)\n",
       "epssDetails": {
-        "percentile": "0.30683",
-        "probability": "0.00112",
+        "percentile": "0.36572",
+        "probability": "0.00151",
         "modelVersion": "v2025.03.14"
       },
       "identifiers": {
@@ -1431,7 +1431,7 @@
         ],
         "description": "## Overview\n[org.apache.tomcat.embed:tomcat-embed-core](https://mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core) is a Core Tomcat implementation.\n\nAffected versions of this package are vulnerable to Integer Overflow or Wraparound via file uploads through servlet containers. An attacker can craft malicious multipart/form-data requests with specially crafted Content-Length headers that trigger integer overflow vulnerabilities, potentially bypassing file size restrictions and causing memory exhaustion.\n## Remediation\nUpgrade `org.apache.tomcat.embed:tomcat-embed-core` to version 9.0.107, 10.1.43, 11.0.9 or higher.\n## References\n- [Apache Advisory](https://lists.apache.org/thread/trqq01bbxw6c92zx69kx2mw2qgmfy0o5)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-9.html)\n- [GitHub Commit](https://github.com/apache/tomcat/commit/927d66fbc294cb65242102b817a45fd80834e040)\n",
         "epssDetails": {
-          "percentile": "0.11285",
+          "percentile": "0.11189",
           "probability": "0.00040",
           "modelVersion": "v2025.03.14"
         },
@@ -1582,7 +1582,7 @@
         ],
         "description": "## Overview\n[org.apache.tomcat.embed:tomcat-embed-core](https://mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core) is a Core Tomcat implementation.\n\nAffected versions of this package are vulnerable to Allocation of Resources Without Limits or Throttling via HTTP/2 multiplexing feature. an attacker can trigger resource exhaustion by creating excessive HTTP/2 streams within a single TCP connection.\n## Remediation\nUpgrade `org.apache.tomcat.embed:tomcat-embed-core` to version 9.0.107, 10.1.43, 11.0.9 or higher.\n## References\n- [Apache Tomcat Advisory](https://lists.apache.org/thread/p09775q0rd185m6zz98krg0fp45j8kr0)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-10.html)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-11.html)\n- [Apache Tomcat Advisory](https://tomcat.apache.org/security-9.html)\n- [GitHub Commit](https://github.com/apache/tomcat/commit/434772930f362145516dd60681134e7f0cf8115b)\n",
         "epssDetails": {
-          "percentile": "0.11285",
+          "percentile": "0.11189",
           "probability": "0.00040",
           "modelVersion": "v2025.03.14"
         },
