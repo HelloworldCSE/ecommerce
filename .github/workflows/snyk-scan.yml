@@ -1,120 +1,89 @@
-name: Snyk Vulnerability Summary
+name: Snyk Vulnerability Extractor and Summarizer
 
 on:
   push:
-    branches: [master]  # Change to 'main' if needed
+    branches: [master]  # change if your default branch is 'main'
 
 jobs:
-  snyk-scan-and-summarize:
+  snyk-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          fetch-depth: 0
 
       - name: Install Snyk CLI
-        run: npm install -g snyk
+        run: npm install -g snyk@latest
 
-      - name: Set SNYK_TOKEN
+      - name: Set SNYK_TOKEN environment variable
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run Snyk and export report
+      - name: Make mvnw executable (for Maven projects)
+        run: |
+          if [ -f "./mvnw" ]; then chmod +x ./mvnw; fi
+
+      - name: Run Snyk and export vulnerabilities
         run: |
           snyk test --all-projects --json-file-output=snyk-results.json || true
-          echo "Snyk report saved to snyk-results.json"
+          echo "Snyk scan completed. Results saved to snyk-results.json"
 
-      - name: Save Python summarizer
-        run: |
-          cat << 'EOF' > summarize_snyk.py
-          import json
-          import os
-          from abc import ABC, abstractmethod
-          from typing import List, Dict, Any
-
-          class ReportReader(ABC):
-              @abstractmethod
-              def read(self) -> List[Dict[str, Any]]:
-                  pass
-
-          class JSONReportReader(ReportReader):
-              def __init__(self, file_path: str):
-                  self.file_path = file_path
-
-              def read(self) -> List[Dict[str, Any]]:
-                  if not os.path.exists(self.file_path):
-                      raise FileNotFoundError(f"File not found: {self.file_path}")
-                  with open(self.file_path, 'r') as f:
-                      data = json.load(f)
-
-                  if "vulnerabilities" in data:
-                      return data["vulnerabilities"]
-                  elif "issues" in data and "vulnerabilities" in data["issues"]:
-                      return data["issues"]["vulnerabilities"]
-                  elif "runs" in data:
-                      results = []
-                      for run in data["runs"]:
-                          results.extend(run.get("results", []))
-                      return results
-                  else:
-                      return []
-
-          class VulnerabilityFormatter:
-              def format(self, vulnerabilities: List[Dict[str, Any]]) -> str:
-                  if not vulnerabilities:
-                      return "No vulnerabilities found."
-                  output = [f"Total vulnerabilities found: {len(vulnerabilities)}"]
-                  for i, issue in enumerate(vulnerabilities, 1):
-                      package = issue.get("package", "Not available")
-                      version = issue.get("version", "Not available")
-                      severity = issue.get("severity", "Not available")
-                      title = issue.get("title", issue.get("message", "No title"))
-                      cwe = issue.get("identifiers", {}).get("CWE", ["Not available"])
-                      cwe_str = ", ".join(cwe)
-                      path = " > ".join(issue.get("from", ["Not available"]))
-                      output.extend([
-                          f"Vulnerability {i}:",
-                          f"Package: {package}@{version}",
-                          f"Path: {path}",
-                          f"Severity: {severity}",
-                          f"Title: {title}",
-                          f"CWE: {cwe_str}",
-                          "-" * 50
-                      ])
-                  return "\n".join(output)
-
-          class VulnerabilitySummarizer:
-              def __init__(self, reader: ReportReader, formatter: VulnerabilityFormatter):
-                  self.reader = reader
-                  self.formatter = formatter
-
-              def summarize(self) -> str:
-                  vulnerabilities = self.reader.read()
-                  return self.formatter.format(vulnerabilities)
-
-          if __name__ == "__main__":
-              try:
-                  reader = JSONReportReader("snyk-results.json")
-                  formatter = VulnerabilityFormatter()
-                  summarizer = VulnerabilitySummarizer(reader, formatter)
-                  summary = summarizer.summarize()
-                  with open("snyk-summary.txt", "w") as summary_file:
-                      summary_file.write(summary)
-                  print("Summary written to snyk-summary.txt")
-              except Exception as e:
-                  print(f"Error: {e}")
-          EOF
-
-      - name: Run vulnerability summarizer
-        run: python summarize_snyk.py
-
-      - name: Upload summary as artifact
+      - name: Upload Snyk raw JSON report
         uses: actions/upload-artifact@v4
         with:
-          name: snyk-vulnerability-summary
+          name: snyk-report-json
+          path: snyk-results.json
+          retention-days: 7
+
+      - name: Save Python summarizer script
+        run: |
+          cat << 'EOF' > summarize_snyk.py
+import json
+
+def summarize_snyk_report(input_file, output_file):
+    with open(input_file, 'r') as f:
+        data = json.load(f)
+
+    projects = data if isinstance(data, list) else [data]
+    with open(output_file, 'w') as out:
+        for project in projects:
+            if "vulnerabilities" not in project:
+                continue
+            for vuln in project["vulnerabilities"]:
+                severity = vuln.get("severity", "unknown").upper()
+                pkg = vuln.get("package", "unknown")
+                version = vuln.get("version", "")
+                path = vuln.get("from", [])[0] if vuln.get("from") else "unknown"
+                title = vuln.get("title", "No description")
+                fixed = vuln.get("fixedIn", [])
+                fixed_versions = ", ".join(fixed) if fixed else "Not fixed"
+
+                out.write(f"[{severity}] {pkg}@{version} in {path}\n")
+                out.write(f"Title: {title}\n")
+                out.write(f"Fixed in: {fixed_versions}\n")
+                out.write("-" * 50 + "\n")
+
+summarize_snyk_report("snyk-results.json", "snyk-summary.txt")
+EOF
+
+      - name: Run summarizer
+        run: python summarize_snyk.py
+
+      - name: Upload summarized Snyk report
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-report-summary
           path: snyk-summary.txt
+          retention-days: 7
+
+      - name: Commit both reports to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snyk-results.json snyk-summary.txt
+          git commit -m "chore: update Snyk reports [skip ci]" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
