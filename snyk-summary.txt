@@ -1,1 +1,32 @@
-
+[MEDIUM] unknown@10.1.40 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: Improper Handling of Case Sensitivity
+Fixed in: 9.0.105, 10.1.41, 11.0.7
+--------------------------------------------------
+[HIGH] unknown@10.1.40 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: Allocation of Resources Without Limits or Throttling
+Fixed in: 9.0.106, 10.1.42, 11.0.8
+--------------------------------------------------
+[MEDIUM] unknown@10.1.40 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: Authentication Bypass Using an Alternate Path or Channel
+Fixed in: 9.0.106, 10.1.42, 11.0.8
+--------------------------------------------------
+[HIGH] unknown@10.1.40 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: Integer Overflow or Wraparound
+Fixed in: 9.0.107, 10.1.43, 11.0.9
+--------------------------------------------------
+[HIGH] unknown@10.1.40 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: Allocation of Resources Without Limits or Throttling
+Fixed in: 9.0.107, 10.1.43, 11.0.9
+--------------------------------------------------
+[LOW] unknown@6.2.6 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: Improper Handling of Case Sensitivity
+Fixed in: 6.1.20, 6.2.7
+--------------------------------------------------
+[MEDIUM] unknown@6.2.6 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: HTTP Response Splitting
+Fixed in: 6.1.21, 6.2.8
+--------------------------------------------------
+[CRITICAL] unknown@6.4.5 in com.wings1:ecommerce@0.0.1-SNAPSHOT
+Title: Missing Authentication for Critical Function
+Fixed in: 6.4.6
+--------------------------------------------------
