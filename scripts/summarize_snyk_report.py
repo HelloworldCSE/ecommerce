@@ -15,21 +15,27 @@ def summarize_snyk_report(input_file, output_file):
             out.write("Error: Failed to parse snyk-results.json\n")
         return
 
-    projects = data if isinstance(data, list) else [data]
+    # Handle multiple project results (from --all-projects)
+    projects = data.get("runs") if "runs" in data else [data] if isinstance(data, dict) else data
+
+    seen = set()  # To avoid duplicates
 
     with open(output_file, "w") as out:
         for project in projects:
-            if "vulnerabilities" not in project:
-                continue
-
-            for vuln in project["vulnerabilities"]:
+            vulns = project.get("vulnerabilities", [])
+            for vuln in vulns:
                 severity = vuln.get("severity", "unknown").upper()
                 pkg = vuln.get("package", "unknown")
                 version = vuln.get("version", "")
-                path = vuln.get("from", [])[0] if vuln.get("from") else "unknown"
+                path = vuln.get("from", ["unknown"])[-1]
                 title = vuln.get("title", "No description")
                 fixed = vuln.get("fixedIn", [])
                 fixed_versions = ", ".join(fixed) if fixed else "Not fixed"
+
+                key = (title, pkg, version)
+                if key in seen:
+                    continue
+                seen.add(key)
 
                 out.write(f"[{severity}] {pkg}@{version} in {path}\n")
                 out.write(f"Title: {title}\n")
