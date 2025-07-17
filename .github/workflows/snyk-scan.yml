@@ -1,56 +1,55 @@
-name: Snyk Vulnerability Extractor and Summarizer
+name: Snyk Vulnerability Extractor
 
 on:
   push:
-    branches: [master]  # or "main", depending on your default branch
-  workflow_dispatch:     # ✅ Allows manual trigger from GitHub Actions tab
+    branches: [master]  # Or 'main' if that’s your default
 
 jobs:
   snyk-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Install Snyk CLI
-        run: npm install -g snyk
+        run: npm install -g snyk@latest
 
       - name: Set SNYK_TOKEN
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run Snyk test and export results
+      - name: Run Snyk test and generate JSON
         run: |
-          snyk test --all-projects --json-file-output=snyk-results.json || true
+          snyk test --all-projects --detection-depth=3 --json-file-output=snyk-results.json || echo "Scan completed with findings or no vulnerabilities."
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Upload Snyk JSON report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-report-json
-          path: snyk-results.json
-
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Run summarizer script
+      - name: Run summary script
         run: python scripts/summarize_snyk_report.py
 
-      - name: Upload summarized report
+      - name: Upload artifacts (report + summary)
         uses: actions/upload-artifact@v4
         with:
-          name: snyk-report-summary
-          path: snyk-summary.txt
+          name: snyk-artifacts
+          path: |
+            snyk-results.json
+            snyk-summary.txt
+          retention-days: 7
 
-      - name: Commit reports back to repo
+      - name: Commit both report and summary to repository
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add snyk-results.json snyk-summary.txt
-          git commit -m "chore: update Snyk reports [skip ci]" || echo "No changes"
+          git commit -m "chore: update Snyk vulnerability report and summary [skip ci]" || echo "No changes to commit"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
