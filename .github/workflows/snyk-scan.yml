@@ -25,8 +25,7 @@ jobs:
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run Snyk scan and generate report
-        run: |
-          snyk test --all-projects --json > snyk-results.json || echo "Scan completed with issues"
+        run: snyk test --json > snyk-results.json || echo "Snyk scan failed, output may be incomplete"
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
