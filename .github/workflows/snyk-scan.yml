@@ -1,33 +1,36 @@
-name: Snyk Vulnerability Extractor
+name: Snyk Scan and Summary Report
 
 on:
   push:
-    branches: [master]  # Or 'main' if that’s your default
+    branches:
+      - master
 
 jobs:
-  snyk-scan:
+  snyk:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Install Node.js (for Snyk CLI)
+        uses: actions/setup-node@v3
         with:
-          fetch-depth: 0
+          node-version: '18'
 
       - name: Install Snyk CLI
-        run: npm install -g snyk@latest
+        run: npm install -g snyk
 
-      - name: Set SNYK_TOKEN
+      - name: Authenticate Snyk
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Run Snyk test and generate JSON
+      - name: Run Snyk scan and generate report
         run: |
-          snyk test --all-projects --detection-depth=3 --json-file-output=snyk-results.json || echo "Scan completed with findings or no vulnerabilities."
+          snyk test --all-projects --json > snyk-results.json || echo "Scan completed (with or without issues)"
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -35,21 +38,25 @@ jobs:
       - name: Run summary script
         run: python scripts/summarize_snyk_report.py
 
+      - name: Display file outputs (for debug)
+        run: |
+          echo "--- Snyk Report (JSON) ---"
+          cat snyk-results.json || echo "Missing snyk-results.json"
+          echo "--- Snyk Summary (TXT) ---"
+          cat snyk-summary.txt || echo "Missing snyk-summary.txt"
+
       - name: Upload artifacts (report + summary)
         uses: actions/upload-artifact@v4
         with:
-          name: snyk-artifacts
+          name: snyk-reports
           path: |
             snyk-results.json
             snyk-summary.txt
-          retention-days: 7
 
-      - name: Commit both report and summary to repository
+      - name: Commit results to repo
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add snyk-results.json snyk-summary.txt
-          git commit -m "chore: update Snyk vulnerability report and summary [skip ci]" || echo "No changes to commit"
+          git commit -m "chore: update Snyk reports [skip ci]" || echo "No changes"
           git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
