@@ -27,7 +27,7 @@ jobs:
 
       - name: Run Snyk and export vulnerabilities
         run: |
-          snyk test --all-projects --json-file-output=snyk-results.json || true
+          snyk code test --json-file-output=snyk-code-results.json || true
           echo "Snyk scan completed. Results saved to snyk-results.json"
 
       - name: Setup Python
