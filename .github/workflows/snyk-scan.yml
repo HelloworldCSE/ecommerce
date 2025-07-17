@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -17,9 +20,6 @@ jobs:
 
       - name: Install Snyk CLI
         run: npm install -g snyk@latest
-
-      - name: Set SNYK_TOKEN environment variable
-        run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
       - name: Make mvnw executable (for Maven projects)
         run: |
