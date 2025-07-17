@@ -15,32 +15,36 @@ def summarize_snyk_report(input_file, output_file):
             out.write("Error: Failed to parse snyk-results.json\n")
         return
 
-    # Handle multiple project results (from --all-projects)
-    projects = data.get("runs") if "runs" in data else [data] if isinstance(data, dict) else data
-
-    seen = set()  # To avoid duplicates
+    projects = data if isinstance(data, list) else [data]
 
     with open(output_file, "w") as out:
         for project in projects:
-            vulns = project.get("vulnerabilities", [])
-            for vuln in vulns:
+            if "vulnerabilities" not in project:
+                continue
+
+            for vuln in project["vulnerabilities"]:
                 severity = vuln.get("severity", "unknown").upper()
                 pkg = vuln.get("package", "unknown")
                 version = vuln.get("version", "")
-                path = vuln.get("from", ["unknown"])[-1]
-                title = vuln.get("title", "No description")
-                fixed = vuln.get("fixedIn", [])
-                fixed_versions = ", ".join(fixed) if fixed else "Not fixed"
+                cve = ", ".join(vuln.get("identifiers", {}).get("CVE", []))
+                title = vuln.get("title", "No title")
+                fixed = vuln.get("fixedIn", []) or vuln.get("upgradePath", [])
+                fixed_versions = ", ".join(f for f in fixed if f) if fixed else "Not fixed"
 
-                key = (title, pkg, version)
-                if key in seen:
-                    continue
-                seen.add(key)
+                references = [r.get("url") for r in vuln.get("references", [])]
+                ref_str = "\n".join(references)
 
-                out.write(f"[{severity}] {pkg}@{version} in {path}\n")
+                description = vuln.get("description", "").split("\n")[0]  # first line
+
+                out.write(f"[{severity}] {pkg}@{version}\n")
+                if cve:
+                    out.write(f"CVE: {cve}\n")
                 out.write(f"Title: {title}\n")
+                out.write(f"Description: {description}\n")
                 out.write(f"Fixed in: {fixed_versions}\n")
-                out.write("-" * 50 + "\n")
+                if references:
+                    out.write("References:\n" + ref_str + "\n")
+                out.write("-" * 60 + "\n")
 
 if __name__ == "__main__":
     summarize_snyk_report("snyk-results.json", "snyk-summary.txt")
