@@ -1,0 +1,8 @@
+MEDIUM - org.apache.tomcat.embed:tomcat-embed-core@10.1.40: Improper Handling of Case Sensitivity
+HIGH - org.apache.tomcat.embed:tomcat-embed-core@10.1.40: Allocation of Resources Without Limits or Throttling
+MEDIUM - org.apache.tomcat.embed:tomcat-embed-core@10.1.40: Authentication Bypass Using an Alternate Path or Channel
+HIGH - org.apache.tomcat.embed:tomcat-embed-core@10.1.40: Integer Overflow or Wraparound
+HIGH - org.apache.tomcat.embed:tomcat-embed-core@10.1.40: Allocation of Resources Without Limits or Throttling
+LOW - org.springframework:spring-context@6.2.6: Improper Handling of Case Sensitivity
+MEDIUM - org.springframework:spring-web@6.2.6: HTTP Response Splitting
+CRITICAL - org.springframework.security:spring-security-core@6.4.5: Missing Authentication for Critical Function
