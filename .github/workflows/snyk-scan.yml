@@ -2,13 +2,13 @@ name: Snyk Vulnerability Extractor and Summarizer
 
 on:
   push:
-    branches: [master]  # change if your default branch is 'main'
+    branches: [master]  # change to 'main' if needed
 
 jobs:
   snyk-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -37,14 +37,24 @@ jobs:
           path: snyk-results.json
           retention-days: 7
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Save Python summarizer script
         run: |
           cat << 'EOF' > summarize_snyk.py
 import json
 
 def summarize_snyk_report(input_file, output_file):
-    with open(input_file, 'r') as f:
-        data = json.load(f)
+    try:
+        with open(input_file, 'r') as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        with open(output_file, 'w') as out:
+            out.write("Error: Failed to parse snyk-results.json\n")
+        return
 
     projects = data if isinstance(data, list) else [data]
     with open(output_file, 'w') as out:
