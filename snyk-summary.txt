@@ -1,1 +1,1 @@
-
+Error: Failed to parse snyk-results.json
