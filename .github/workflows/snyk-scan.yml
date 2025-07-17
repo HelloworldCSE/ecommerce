@@ -2,15 +2,12 @@ name: Snyk Vulnerability Extractor and Summarizer
 
 on:
   push:
-    branches: [master]  # change to 'main' if needed
+    branches: [master]  # Change to 'main' if needed
 
 jobs:
   snyk-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    env:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -21,6 +18,9 @@ jobs:
       - name: Install Snyk CLI
         run: npm install -g snyk@latest
 
+      - name: Set SNYK_TOKEN environment variable
+        run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
+
       - name: Make mvnw executable (for Maven projects)
         run: |
           if [ -f "./mvnw" ]; then chmod +x ./mvnw; fi
@@ -30,62 +30,26 @@ jobs:
           snyk test --all-projects --json-file-output=snyk-results.json || true
           echo "Snyk scan completed. Results saved to snyk-results.json"
 
-      - name: Upload Snyk raw JSON report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-report-json
-          path: snyk-results.json
-          retention-days: 7
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Save Python summarizer script
-        run: |
-          cat << 'EOF' > summarize_snyk.py
-import json
-
-def summarize_snyk_report(input_file, output_file):
-    try:
-        with open(input_file, "r") as f:
-            data = json.load(f)
-    except json.JSONDecodeError:
-        with open(output_file, "w") as out:
-            out.write("Error: Failed to parse snyk-results.json\n")
-        return
-
-    projects = data if isinstance(data, list) else [data]
-    with open(output_file, "w") as out:
-        for project in projects:
-            if "vulnerabilities" not in project:
-                continue
-            for vuln in project["vulnerabilities"]:
-                severity = vuln.get("severity", "unknown").upper()
-                pkg = vuln.get("package", "unknown")
-                version = vuln.get("version", "")
-                path = vuln.get("from", [])[0] if vuln.get("from") else "unknown"
-                title = vuln.get("title", "No description")
-                fixed = vuln.get("fixedIn", [])
-                fixed_versions = ", ".join(fixed) if fixed else "Not fixed"
-
-                out.write(f"[{severity}] {pkg}@{version} in {path}\n")
-                out.write(f"Title: {title}\n")
-                out.write(f"Fixed in: {fixed_versions}\n")
-                out.write("-" * 50 + "\n")
-
-summarize_snyk_report("snyk-results.json", "snyk-summary.txt")
-EOF
-
-      - name: Run summarizer
-        run: python summarize_snyk.py
+      - name: Run Python summarizer
+        run: python scripts/summarize_snyk.py
 
       - name: Upload summarized Snyk report
         uses: actions/upload-artifact@v4
         with:
           name: snyk-report-summary
           path: snyk-summary.txt
+          retention-days: 7
+
+      - name: Upload Snyk raw JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-report-json
+          path: snyk-results.json
           retention-days: 7
 
       - name: Commit both reports to repository
