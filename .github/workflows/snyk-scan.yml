@@ -2,62 +2,59 @@ name: Snyk Vulnerability Extractor and Summarizer
 
 on:
   push:
-    branches: [master]  # Change to 'main' if needed
+    branches: [master]  # Change to main if needed
 
 jobs:
   snyk-scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Install Snyk CLI
-        run: npm install -g snyk@latest
+        run: npm install -g snyk
 
-      - name: Set SNYK_TOKEN environment variable
+      - name: Set SNYK_TOKEN
         run: echo "SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Make mvnw executable (for Maven projects)
+      - name: Run Snyk test and export results
         run: |
-          if [ -f "./mvnw" ]; then chmod +x ./mvnw; fi
+          snyk test --all-projects --json-file-output=snyk-results.json || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Run Snyk and export vulnerabilities
+      - name: Show Snyk raw results (optional debug)
         run: |
-          snyk code test --json-file-output=snyk-code-results.json || true
-          echo "Snyk scan completed. Results saved to snyk-results.json"
+          echo "=== Snyk JSON ==="
+          cat snyk-results.json || echo "File not found"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Run Python summarizer
-        run: python scripts/summarize_snyk.py
-
-      - name: Upload summarized Snyk report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-report-summary
-          path: snyk-summary.txt
-          retention-days: 7
-
-      - name: Upload Snyk raw JSON report
+      - name: Upload Snyk JSON report
         uses: actions/upload-artifact@v4
         with:
           name: snyk-report-json
           path: snyk-results.json
-          retention-days: 7
 
-      - name: Commit both reports to repository
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run summarizer script
+        run: python scripts/summarize_snyk_report.py
+
+      - name: Upload summarized report
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-report-summary
+          path: snyk-summary.txt
+
+      - name: Commit reports back to repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add snyk-results.json snyk-summary.txt
-          git commit -m "chore: update Snyk reports [skip ci]" || echo "No changes to commit"
+          git commit -m "chore: update Snyk reports [skip ci]" || echo "No changes"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
