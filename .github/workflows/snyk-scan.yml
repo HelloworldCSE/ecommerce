@@ -44,7 +44,8 @@ jobs:
 
       - name: Save Python summarizer script
         run: |
-          echo 'import json
+          cat << 'EOF' > summarize_snyk.py
+import json
 
 def summarize_snyk_report(input_file, output_file):
     try:
@@ -52,7 +53,7 @@ def summarize_snyk_report(input_file, output_file):
             data = json.load(f)
     except json.JSONDecodeError:
         with open(output_file, "w") as out:
-            out.write("Error: Failed to parse snyk-results.json\\n")
+            out.write("Error: Failed to parse snyk-results.json\n")
         return
 
     projects = data if isinstance(data, list) else [data]
@@ -69,13 +70,13 @@ def summarize_snyk_report(input_file, output_file):
                 fixed = vuln.get("fixedIn", [])
                 fixed_versions = ", ".join(fixed) if fixed else "Not fixed"
 
-                out.write(f"[{severity}] {pkg}@{version} in {path}\\n")
-                out.write(f"Title: {title}\\n")
-                out.write(f"Fixed in: {fixed_versions}\\n")
-                out.write("-" * 50 + "\\n")
+                out.write(f"[{severity}] {pkg}@{version} in {path}\n")
+                out.write(f"Title: {title}\n")
+                out.write(f"Fixed in: {fixed_versions}\n")
+                out.write("-" * 50 + "\n")
 
 summarize_snyk_report("snyk-results.json", "snyk-summary.txt")
-' > summarize_snyk.py
+EOF
 
       - name: Run summarizer
         run: python summarize_snyk.py
