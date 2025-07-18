@@ -7,7 +7,7 @@ jobs:
   snyk-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -24,25 +24,27 @@ jobs:
         run: |
           if [ -f "./mvnw" ]; then chmod +x ./mvnw; fi
 
-      - name: Run Snyk and export vulnerabilities
+      - name: Run Snyk and capture JSON output
+        id: snyk-scan
         run: |
-          snyk test --all-projects --json-file-output=snyk-results.json || true
-          echo "Snyk scan completed. Results saved to snyk-results.json"
-
-      - name: Upload Snyk JSON report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-json-report
-          path: snyk-results.json
-          retention-days: 7
+          snyk test --all-projects --json > snyk-temp.json || true
+          # Store the JSON content as a step output using heredoc
+          echo "json_data<<EOF" >> $GITHUB_OUTPUT
+          cat snyk-temp.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          # Clean up temporary file
+          rm snyk-temp.json
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Run summary generator
-        run: python scripts/summarize_snyk_report.py
+      - name: Run summary generator with direct JSON data
+        env:
+          SNYK_JSON_DATA: ${{ steps.snyk-scan.outputs.json_data }}
+        run: |
+          python scripts/summarize_snyk_report.py
 
       - name: Upload summary report
         uses: actions/upload-artifact@v4
@@ -51,15 +53,7 @@ jobs:
           path: snyk-summary.txt
           retention-days: 7
 
-      - name: Commit JSON report
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add snyk-results.json
-          git commit -m "chore: update Snyk JSON report [skip ci]" || echo "No changes to commit"
-          git push
-
-      - name: Commit summary report
+      - name: Commit summary report only
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
