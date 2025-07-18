@@ -1,2 +1,11 @@
-# Snyk Scan Fallback Summary
-No summary could be generated
+# Snyk Vulnerability Scan Summary
+Generated on: $(date)
+
+## Status
+Scan completed but summary generation failed
+Please check the Python script for errors
+
+## Default Summary
+- Total Projects Scanned: Unknown
+- Total Vulnerabilities: Unable to determine
+- Status: Error in processing
