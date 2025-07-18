@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3.6.0
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -28,8 +28,8 @@ jobs:
         run: |
           echo "Starting Snyk scan"
           snyk config set api="$SNYK_TOKEN"
-          snyk test --all-projects --json-file-output=/tmp/snyk-results.json --quiet
-        continue-on-error: true
+          snyk test --all-projects --json-file-output=/tmp/snyk-results.json --quiet || true
+          echo "Snyk scan completed"
 
       - name: Ensure JSON output exists
         run: |
@@ -42,24 +42,20 @@ jobs:
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@v5.1.0
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Try to generate human summary
+      - name: Generate human summary
         run: |
           mkdir -p scripts
-          python scripts/summarize_snyk_report.py /tmp/snyk-results.json
-        continue-on-error: true
-
-      - name: Fallback summary if Python failed
-        if: failure()
-        run: |
-          mkdir -p scripts
-          echo "# Snyk Vulnerability Scan Summary" > scripts/snyk-summary.txt
-          echo "" >> scripts/snyk-summary.txt
-          echo "Summary generation failed." >> scripts/snyk-summary.txt
-          echo "Inspect workflow logs for the root cause." >> scripts/snyk-summary.txt
+          python scripts/summarize_snyk_report.py /tmp/snyk-results.json || {
+            echo "Python script failed, creating fallback summary"
+            echo "# Snyk Vulnerability Scan Summary" > scripts/snyk-summary.txt
+            echo "" >> scripts/snyk-summary.txt
+            echo "Summary generation failed." >> scripts/snyk-summary.txt
+            echo "Inspect workflow logs for the root cause." >> scripts/snyk-summary.txt
+          }
 
       - name: Verify summary file exists
         run: |
@@ -72,7 +68,7 @@ jobs:
           fi
 
       - name: Upload summary artifact
-        uses: actions/upload-artifact@v4.3.1
+        uses: actions/upload-artifact@v4
         with:
           name: snyk-summary
           path: scripts/snyk-summary.txt
