@@ -5,4 +5,4 @@ HIGH - org.apache.tomcat.embed:tomcat-embed-core@10.1.40: Integer Overflow or Wr
 HIGH - org.apache.tomcat.embed:tomcat-embed-core@10.1.40: Allocation of Resources Without Limits or Throttling
 LOW - org.springframework:spring-context@6.2.6: Improper Handling of Case Sensitivity
 MEDIUM - org.springframework:spring-web@6.2.6: HTTP Response Splitting
-CRITICAL - org.springframework.security:spring-security-core@6.4.5: Missing Authentication for Critical Function
+CRITICAL - org.springframework.security:spring-security-core@6.4.5: Missing Authentication for Critical Functio
