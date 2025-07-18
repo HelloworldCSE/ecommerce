@@ -1,8 +1,7 @@
 name: Snyk Vulnerability Scan and Summary
 
 on:
-  push:
-    branches: [master]  # or main if your branch is named main
+  workflow_dispatch:
 
 jobs:
   snyk-scan:
