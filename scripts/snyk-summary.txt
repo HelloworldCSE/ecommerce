@@ -1,0 +1,2 @@
+# Snyk Scan Fallback Summary
+No summary could be generated
