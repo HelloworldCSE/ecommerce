@@ -97,6 +97,7 @@ jobs:
             fi
           else
             echo "No summary file to commit"
+          fi
 
       - name: Clean up JSON file
         if: always()
