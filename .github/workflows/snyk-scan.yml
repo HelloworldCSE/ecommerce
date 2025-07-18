@@ -13,7 +13,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3.6.0
+        with:
+          fetch-depth: 0
 
       - name: Install Snyk CLI
         run: npm install -g snyk@latest
@@ -33,28 +35,44 @@ jobs:
         run: |
           if [ -s /tmp/snyk-results.json ]; then
             echo "Snyk results captured"
+            echo "File size: $(wc -c < /tmp/snyk-results.json) bytes"
           else
             echo "Snyk produced no results; creating empty placeholder"
             echo '{"ok":true,"vulnerabilities":[]}' > /tmp/snyk-results.json
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.1.0
         with:
           python-version: '3.x'
 
-      - name: Generate human summary
+      - name: Try to generate human summary
         run: |
           mkdir -p scripts
-          python scripts/summarize_snyk_report.py /tmp/snyk-results.json || {
-            echo "# Snyk Vulnerability Scan Summary" > scripts/snyk-summary.txt
-            echo "" >> scripts/snyk-summary.txt
-            echo "Summary generation failed." >> scripts/snyk-summary.txt
-            echo "Inspect workflow logs for the root cause." >> scripts/snyk-summary.txt
-          }
+          python scripts/summarize_snyk_report.py /tmp/snyk-results.json
+        continue-on-error: true
+
+      - name: Fallback summary if Python failed
+        if: failure()
+        run: |
+          mkdir -p scripts
+          echo "# Snyk Vulnerability Scan Summary" > scripts/snyk-summary.txt
+          echo "" >> scripts/snyk-summary.txt
+          echo "Summary generation failed." >> scripts/snyk-summary.txt
+          echo "Inspect workflow logs for the root cause." >> scripts/snyk-summary.txt
+
+      - name: Verify summary file exists
+        run: |
+          if [ -f scripts/snyk-summary.txt ]; then
+            echo "Summary file created successfully"
+            echo "File size: $(wc -c < scripts/snyk-summary.txt) bytes"
+          else
+            echo "ERROR: Summary file not found"
+            exit 1
+          fi
 
       - name: Upload summary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: snyk-summary
           path: scripts/snyk-summary.txt
@@ -71,6 +89,18 @@ jobs:
               echo "No changes to commit"
             else
               git commit -m "chore: update Snyk summary report [skip ci]"
-              git push || echo "Push failed"
+              git push || echo "Push failed - check repository permissions"
             fi
+          else
+            echo "No summary file to commit"
+          fi
+
+      - name: Clean up JSON file
+        if: always()
+        run: |
+          if [ -f /tmp/snyk-results.json ]; then
+            rm /tmp/snyk-results.json
+            echo "JSON file deleted successfully"
+          else
+            echo "JSON file not found"
           fi
