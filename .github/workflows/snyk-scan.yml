@@ -61,11 +61,22 @@ jobs:
 
       - name: Commit updated summary file
         run: |
+          # Configure Git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Stage only the summary file (make sure this matches your actual filename)
           git add scripts/snyk-summary.txt
-          git diff-index --quiet HEAD || git commit -m "Update Snyk vulnerability summary"
-          echo "Summary file updated in Git"
+          
+          # Check if there are changes to commit
+          if git diff-index --quiet HEAD -- scripts/snyk-summary.txt; then
+            echo "No changes to summary file"
+          else
+            git commit -m "Update Snyk vulnerability summary [skip ci]"
+            echo "Summary file updated in Git"
+            # Push the change back to the repository
+            git push origin HEAD:${GITHUB_REF#refs/heads/}
+          fi
 
       - name: Run Mistral Fix and Create PR
         run: |
