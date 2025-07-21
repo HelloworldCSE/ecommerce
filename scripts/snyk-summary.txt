@@ -1,10 +1,1 @@
-# Snyk Scan Summary
 
-- **MEDIUM** - `unknown@10.1.40`: Improper Handling of Case Sensitivity
-- **HIGH** - `unknown@10.1.40`: Allocation of Resources Without Limits or Throttling
-- **MEDIUM** - `unknown@10.1.40`: Authentication Bypass Using an Alternate Path or Channel
-- **HIGH** - `unknown@10.1.40`: Integer Overflow or Wraparound
-- **HIGH** - `unknown@10.1.40`: Allocation of Resources Without Limits or Throttling
-- **LOW** - `unknown@6.2.6`: Improper Handling of Case Sensitivity
-- **MEDIUM** - `unknown@6.2.6`: HTTP Response Splitting
-- **CRITICAL** - `unknown@6.4.5`: Missing Authentication for Critical Function
