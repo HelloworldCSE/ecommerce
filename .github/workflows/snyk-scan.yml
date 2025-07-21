@@ -29,10 +29,9 @@ jobs:
 
       - name: Make Maven wrapper executable
         run: |
-          if [ -f ./mvnw ]; then chmod +x ./mvnw; fi
-
-      - name: Build with Maven (dependency resolution)
-        run: ./mvnw dependency:resolve-plugins dependency:resolve -DskipTests
+          if [ -f ./mvnw ]; then
+            chmod +x ./mvnw
+          fi
 
       - name: Run Snyk scan and save JSON results
         run: |
@@ -44,7 +43,7 @@ jobs:
           if [ -s /tmp/snyk-results.json ]; then
             echo "✅ Snyk results captured"
           else
-            echo '{"ok":true,"vulnerabilities":[]}' > /tmp/snyk-results.json
+            echo '{"runs":[]}' > /tmp/snyk-results.json
           fi
 
       - name: Set up Python
@@ -60,18 +59,26 @@ jobs:
             echo "Summary generation failed." >> scripts/snyk-summary.txt
           }
 
+      - name: Commit updated summary file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Using hyphen to match desired filename
+          git add scripts/snyk-summary.txt
+          
+          if git diff-index --quiet HEAD -- scripts/snyk-summary.txt; then
+            echo "No changes to summary file"
+          else
+            git commit -m "Update Snyk vulnerability summary [skip ci]"
+            echo "Summary file updated in Git"
+            git push
+          fi
+
       - name: Run Mistral Fix and Create PR
         run: |
           pip install requests PyGithub
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           python scripts/pom_fix_from_report.py scripts/snyk-summary.txt
-
-      - name: Commit updated snyk-summary.txt
-        run: |
-          git add scripts/snyk-summary.txt
-          git commit -m "Update Snyk summary [bot]" || echo "No changes to commit"
-          git push origin main || echo "No changes to push"
 
       - name: Upload summary as artifact
         uses: actions/upload-artifact@v4
