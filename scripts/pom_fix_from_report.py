@@ -1,76 +1,88 @@
 import os
+import sys
 import requests
-import json
 from github import Github
-from github.ContentFile import ContentFile
-from datetime import datetime
 
-# Environment variables
-GITHUB_TOKEN = os.getenv("PERSONAL_ACCESS_TOKEN")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
-GITHUB_REPO = os.getenv("GITHUB_REPO")
-BRANCH_NAME = f"fix/pom-update-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
-POM_FILE_PATH = "pom.xml"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+REPO_NAME = os.getenv("GITHUB_REPO")
+SNYK_SUMMARY_PATH = sys.argv[1] if len(sys.argv) > 1 else "scripts/snyk_summary.txt"
+POM_FILE = "pom.xml"
 
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
+HEADERS = {
+    "Authorization": f"Bearer {MISTRAL_API_KEY}",
+    "Content-Type": "application/json"
+}
 
-# ---------- Prompt Setup for Mistral Fixer ----------
-SYSTEM_PROMPT = (
-    "You are an expert Java Maven developer. "
-    "Your task is to fix vulnerable dependencies in the provided pom.xml based on the summary of Snyk vulnerabilities.\n"
-    "Your fix must:\n"
-    "- Upgrade each dependency only once.\n"
-    "- Avoid duplicating <dependency> entries.\n"
-    "- Preserve correct pom.xml structure.\n"
-    "- Output only the complete corrected pom.xml content as valid XML without explanation or markdown."
-)
+def read_summary(file_path):
+    with open(file_path, "r") as f:
+        return f.read()
 
-def get_summary_text(summary_path: str) -> str:
-    with open(summary_path, "r") as file:
-        return file.read().strip()
+def read_pom():
+    with open(POM_FILE, "r") as f:
+        return f.read()
 
-def get_fixed_pom(summary_text: str) -> str:
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
+def get_fix_from_mistral(summary, pom_content):
+    prompt = f"""You are an expert in Java and Maven.
+You are given a Snyk vulnerability summary and the contents of a pom.xml file.
+Update the pom.xml file to fix the vulnerabilities using the summary provided.
+
+### Vulnerability Summary:
+{summary}
+
+### pom.xml:
+{pom_content}
+
+### Fixed pom.xml (ONLY THE NEW CONTENT, NO EXPLANATION):"""
+
+    body = {
         "model": "mistral-small",
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": summary_text}
-        ]
+            {"role": "system", "content": "You are a helpful AI that improves Java pom.xml files based on vulnerability summaries."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "max_tokens": 2048
     }
-    response = requests.post(MISTRAL_API_URL, headers=headers, json=data)
+
+    response = requests.post(MISTRAL_API_URL, headers=HEADERS, json=body)
     response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
+    result = response.json()
+    return result["choices"][0]["message"]["content"].strip()
 
-def commit_fixed_pom_to_github(fixed_pom: str):
+def create_branch_and_commit(new_pom):
     github = Github(GITHUB_TOKEN)
-    repo = github.get_repo(GITHUB_REPO)
+    repo = github.get_repo(REPO_NAME)
 
+    branch = "mistral-snyk-fix"
     source = repo.get_branch("main")
-    repo.create_git_ref(ref=f"refs/heads/{BRANCH_NAME}", sha=source.commit.sha)
 
-    pom_file: ContentFile = repo.get_contents(POM_FILE_PATH, ref="main")
+    try:
+        repo.create_git_ref(ref=f"refs/heads/{branch}", sha=source.commit.sha)
+    except Exception as e:
+        print(f"Branch creation might have failed: {e}")
 
+    pom_path = POM_FILE
+    pom_file = repo.get_contents(pom_path, ref=branch)
     repo.update_file(
-        path=POM_FILE_PATH,
-        message="fix: update vulnerable dependencies in pom.xml",
-        content=fixed_pom,
-        sha=pom_file.sha,
-        branch=BRANCH_NAME,
+        pom_path,
+        "fix: update pom.xml based on Snyk vulnerabilities",
+        new_pom,
+        pom_file.sha,
+        branch=branch
     )
 
     repo.create_pull(
-        title="fix: resolve Snyk vulnerabilities in pom.xml",
-        body="This PR updates vulnerable dependencies as per latest Snyk scan.",
-        head=BRANCH_NAME,
-        base="main",
+        title="fix: auto-update pom.xml via Mistral AI",
+        body="This PR includes automatic fixes to `pom.xml` based on Snyk vulnerabilities using Mistral AI.",
+        head=branch,
+        base="main"
     )
 
 if __name__ == "__main__":
-    summary_text = get_summary_text("scripts/snyk-summary.txt")
-    fixed_pom = get_fixed_pom(summary_text)
-    commit_fixed_pom_to_github(fixed_pom)
-    print("✅ Pull request created with fixed pom.xml.")
+    summary_text = read_summary(SNYK_SUMMARY_PATH)
+    pom_text = read_pom()
+    fixed_pom = get_fix_from_mistral(summary_text, pom_text)
+    create_branch_and_commit(fixed_pom)
