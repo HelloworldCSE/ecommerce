@@ -59,6 +59,15 @@ jobs:
             echo "Summary generation failed." >> scripts/snyk-summary.txt
           }
 
+      - name: Add summary to Git (without committing)
+        run: |
+          if [ -f scripts/snyk-summary.txt ]; then
+            git add scripts/snyk-summary.txt
+            echo "Summary file added to Git staging area"
+          else
+            echo "No summary file found to add to Git"
+          fi
+
       - name: Run Mistral Fix and Create PR
         run: |
           pip install requests PyGithub
