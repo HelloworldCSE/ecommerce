@@ -1,24 +1,24 @@
 import sys
 import json
 
-def summarize_vulnerabilities(report_json):
+def summarize_vulnerabilities(vuln_json):
     summary_lines = ["# Snyk Scan Summary\n"]
-    projects = report_json.get("runs", [])
+    projects = vuln_json.get("vulnerabilities", [])
 
-    for project in projects:
-        tool = project.get("tool", {}).get("driver", {}).get("name", "Snyk")
-        results = project.get("results", [])
-
-        for result in results:
-            level = result.get("level", "UNKNOWN").upper()
-            vuln_id = result.get("ruleId", "N/A")
-            message = result.get("message", {}).get("text", "No message provided.")
-            location = result.get("locations", [{}])[0].get("physicalLocation", {}).get("artifactLocation", {}).get("uri", "Unknown file")
-
-            summary_lines.append(f"- {level} - {vuln_id} in `{location}`: {message}")
-
-    if len(summary_lines) == 1:
+    if not projects:
         summary_lines.append("✅ No vulnerabilities found.")
+        return "\n".join(summary_lines)
+
+    for vuln in projects:
+        severity = vuln.get("severity", "unknown").upper()
+        package = vuln.get("package", "unknown-package")
+        version = vuln.get("version", "unknown-version")
+        title = vuln.get("title", "No title provided")
+        file_path = vuln.get("from", ["unknown-location"])[-1]
+
+        summary_lines.append(
+            f"- {severity} - {title} in `{package}@{version}` ({file_path})"
+        )
 
     return "\n".join(summary_lines)
 
@@ -29,16 +29,16 @@ def main():
 
     json_path = sys.argv[1]
 
-    with open(json_path, "r") as f:
-        try:
+    try:
+        with open(json_path, "r") as f:
             report_json = json.load(f)
-        except json.JSONDecodeError:
-            print("Invalid JSON input.")
-            sys.exit(1)
+    except Exception as e:
+        print(f"Failed to load JSON: {e}")
+        sys.exit(1)
 
     summary = summarize_vulnerabilities(report_json)
 
-    with open("scripts/snyk_summary.txt", "w") as out_file:
+    with open("scripts/snyk-summary.txt", "w") as out_file:
         out_file.write(summary)
 
 if __name__ == "__main__":
