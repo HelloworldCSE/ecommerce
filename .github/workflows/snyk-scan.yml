@@ -15,7 +15,7 @@ jobs:
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-      GITHUB_TOKEN: ${{ secrets.PAT_FOR_GITHUB_ACTIONS }}
+      GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # corrected here
       GITHUB_REPO: ${{ github.repository }}
 
     steps:
