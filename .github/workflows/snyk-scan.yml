@@ -29,7 +29,9 @@ jobs:
 
       - name: Make Maven wrapper executable
         run: |
-          if [ -f ./mvnw ]; then chmod +x ./mvnw; fi
+          if [ -f ./mvnw ]; then
+            chmod +x ./mvnw
+          fi
 
       - name: Run Snyk scan and save JSON results
         run: |
@@ -41,7 +43,7 @@ jobs:
           if [ -s /tmp/snyk-results.json ]; then
             echo "✅ Snyk results captured"
           else
-            echo '{"runs":[]}' > /tmp/snyk-results.json
+            echo '{"ok":true,"vulnerabilities":[]}' > /tmp/snyk-results.json
           fi
 
       - name: Set up Python
@@ -57,25 +59,12 @@ jobs:
             echo "Summary generation failed." >> scripts/snyk-summary.txt
           }
 
-      - name: Run Mistral Fix Script
+      - name: Run Mistral Fix and Create PR
         run: |
           pip install requests PyGithub
-          python scripts/pom_fix_from_report.py scripts/snyk-summary.txt
-
-      - name: Commit and push Snyk summary and fixes
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add scripts/snyk-summary.txt pom.xml || true
-          git status
-
-          if git diff --cached --quiet; then
-            echo "✅ No changes to commit."
-          else
-            git commit -m "🔧 Update pom.xml and Snyk summary from automated scan"
-            git push origin HEAD:${{ github.ref_name }}
-          fi
+          python scripts/pom_fix_from_report.py scripts/snyk-summary.txt
 
       - name: Upload summary as artifact
         uses: actions/upload-artifact@v4
