@@ -1,135 +1,106 @@
 import os
-import requests
-import subprocess
 import sys
-from typing import List, Dict
-from github import Github
+import re
+import json
+import requests
+from github import Github, GithubException
 
-SNYK_TOKEN = os.environ.get("SNYK_TOKEN")
-MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-REPO_NAME = os.environ.get("GITHUB_REPO")
-POM_FILE_PATH = "pom.xml"
+def read_summary(summary_file: str) -> list:
+    with open(summary_file, 'r') as f:
+        return [line.strip() for line in f if line.strip().startswith("- ")]
 
-class MistralAPI:
-    def __init__(self, api_key: str, api_url: str):
-        if not api_key:
-            raise ValueError("SNYK_TOKEN is missing. Ensure the SNYK_TOKEN secret is set.")
-        self.api_key = api_key
-        self.api_url = api_url
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+def extract_artifact_and_version(line: str) -> tuple:
+    match = re.search(r'`([^@]+)@([^`]+)`', line)
+    if match:
+        return match.group(1), match.group(2)
+    return None, None
 
-    def ask(self, messages: List[Dict]) -> str:
-        payload = {
-            "model": "mistral-large-latest",
-            "messages": messages,
-            "temperature": 0.2,
-            "max_tokens": 4096
-        }
-        try:
-            response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=120)
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-            if "```xml" in content:
-                content = content.split("```xml")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1]
-            return content.strip()
-        except requests.exceptions.RequestException as e:
-            print(f"Error calling Mistral API: {e}")
-            return ""
+def get_pom_content(path: str) -> str:
+    with open(path, 'r') as f:
+        return f.read()
 
-def parse_snyk_report(report_content: str) -> bool:
-    if "CRITICAL RISK:" in report_content or "HIGH RISK:" in report_content:
-        return True
-    return False
+def suggest_fix(api_key: str, artifact: str, version: str) -> str:
+    prompt = f"""
+You are an expert in secure Maven dependency management.
 
-def fix_pom(api: MistralAPI, pom_content: str) -> str:
-    fixer_prompt = [
-        {"role": "system", "content": "You are a Maven dependency security expert. Your task is to update the `<version>` tags of dependencies in the provided `pom.xml` to their latest secure versions. You must return the ENTIRE, complete `pom.xml` file with an XML comment `<!-- [AI-FIXER]: Updated version -->` added above each changed dependency. Do not output anything else except the raw XML code."},
-        {"role": "user", "content": f"Update the versions in this pom.xml to resolve known security vulnerabilities. Here is the file:\n\n```xml\n{pom_content}\n```"}
-    ]
-    return api.ask(fixer_prompt)
+A Maven project is currently using a vulnerable dependency:
+Artifact: {artifact}
+Current version: {version}
 
-def run_command(command: list):
+Suggest the safest newer version (only version number) that fixes known vulnerabilities.
+Do not explain. Only return the version.
+"""
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    body = {
+        "model": "mistral-small",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2
+    }
+
+    response = requests.post("https://api.mistral.ai/v1/chat/completions", headers=headers, json=body)
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"].strip()
+    else:
+        print("❌ Mistral API error:", response.text)
+        return None
+
+def update_pom_versions(pom_path: str, updates: list):
+    content = get_pom_content(pom_path)
+    for artifact, old_version, new_version in updates:
+        pattern = f"<artifactId>{artifact}</artifactId>\\s*<version>{old_version}</version>"
+        replacement = f"<artifactId>{artifact}</artifactId>\n            <version>{new_version}</version>"
+        content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+    with open("pom1.xml", "w") as f:
+        f.write(content)
+
+def create_branch_and_pr(repo_name: str, token: str):
+    g = Github(token)
+    repo = g.get_repo(repo_name)
+    base = repo.get_branch("main")
+    branch_name = "fix/snyk-auto-fix"
+
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running command: {' '.join(command)}\nStderr: {e.stderr}")
-        sys.exit(1)
+        repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=base.commit.sha)
+    except GithubException as e:
+        print("⚠️ Branch already exists or error:", e)
 
-def create_github_pr(repo_name: str, branch_name: str, title: str, body: str):
-    try:
-        if not GITHUB_TOKEN:
-            raise ValueError("GitHub token is missing. Ensure the GITHUB_TOKEN secret is passed to the workflow.")
-        g = Github(GITHUB_TOKEN)
-        repo = g.get_repo(repo_name)
-        pr = repo.create_pull(
-            title=title,
-            body=body,
-            head=branch_name,
-            base=repo.default_branch
-        )
-        print(f"Successfully created Pull Request: {pr.html_url}")
-    except Exception as e:
-        print(f"Failed to create Pull Request: {e}")
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python pom_fix_from_report.py <path_to_snyk_summary.txt>")
-        sys.exit(1)
-
-    snyk_report_path = sys.argv[1]
-    if not os.path.exists(snyk_report_path):
-        print(f"Error: Snyk report not found at {snyk_report_path}")
-        sys.exit(1)
-
-    with open(snyk_report_path, "r") as f:
-        snyk_report_content = f.read()
-
-    if not parse_snyk_report(snyk_report_content):
-        return
-
-    if not os.path.exists(POM_FILE_PATH):
-        print(f"Error: {POM_FILE_PATH} not found.")
-        sys.exit(1)
-
-    with open(POM_FILE_PATH, "r") as f:
-        original_pom_content = f.read()
-
-    api = MistralAPI(SNYK_TOKEN, MISTRAL_API_URL)
-    fixed_pom_content = fix_pom(api, original_pom_content)
-
-    if not fixed_pom_content or fixed_pom_content.strip() == original_pom_content.strip():
-        print("AI returned no changes or an empty response. Exiting.")
-        return
-
-    branch_name = "ai/fix-pom-vulnerabilities"
-
-    run_command(["git", "checkout", "-b", branch_name])
-
-    with open(POM_FILE_PATH, "w") as f:
-        f.write(fixed_pom_content)
-
-    commit_message = "fix(deps): AI-suggested updates to pom.xml for security"
-    run_command(["git", "add", POM_FILE_PATH])
-    run_command(["git", "commit", "-m", commit_message])
-    run_command(["git", "push", "-u", "origin", branch_name])
-
-    pr_title = "AI Fix: Update Maven Dependencies to Remediate Snyk Vulnerabilities"
-    pr_body = (
-        "This pull request was automatically generated by an AI agent in response to vulnerabilities detected by Snyk.\n\n"
-        "**Snyk Report Summary:**\n"
-        f"```\n{snyk_report_content}\n```\n"
-        "**Action Taken:**\n"
-        "The `pom.xml` has been updated with newer, secure dependency versions as suggested by the AI agent.\n\n"
-        "Please review the file changes carefully to ensure compatibility and correctness before merging."
+    repo.create_file(
+        path="pom1.xml",
+        message="fix: update vulnerable dependencies [auto]",
+        content=open("pom1.xml").read(),
+        branch=branch_name
     )
 
-    create_github_pr(REPO_NAME, branch_name, pr_title, pr_body)
+    repo.create_pull(
+        title="Auto PR: Fix Snyk Vulnerabilities in pom.xml",
+        body="This PR updates vulnerable dependencies based on Snyk scan and Mistral suggestions.",
+        head=branch_name,
+        base="main"
+    )
 
 if __name__ == "__main__":
-    main()
+    summary_file = sys.argv[1]
+    pom_path = "pom.xml"
+
+    summary_lines = read_summary(summary_file)
+    mistral_key = os.environ.get("MISTRAL_API_KEY")
+    github_token = os.environ.get("GITHUB_TOKEN")
+    repo = os.environ.get("GITHUB_REPO")
+
+    updates = []
+    for line in summary_lines:
+        artifact, version = extract_artifact_and_version(line)
+        if artifact and version:
+            fixed_version = suggest_fix(mistral_key, artifact, version)
+            if fixed_version:
+                updates.append((artifact, version, fixed_version))
+
+    if updates:
+        update_pom_versions(pom_path, updates)
+        create_branch_and_pr(repo, github_token)
+        print("✅ Fix PR created successfully.")
+    else:
+        print("✅ No actionable updates found.")
