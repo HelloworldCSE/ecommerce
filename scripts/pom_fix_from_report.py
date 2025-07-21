@@ -1,94 +1,88 @@
 import os
+import sys
 import requests
-import time
 from github import Github
 
-MISTRAL_API_KEY = os.environ["MISTRAL_API_KEY"]
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-REPO_NAME = os.environ["GITHUB_REPO"]
-POM_FILE_PATH = os.environ.get("POM_FILE_PATH", "pom.xml")
-SNYK_SUMMARY_PATH = os.environ.get("SNYK_SUMMARY_PATH", "scripts/snyk_summary.txt")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+REPO_NAME = os.getenv("GITHUB_REPO")
+SNYK_SUMMARY_PATH = sys.argv[1] if len(sys.argv) > 1 else "scripts/snyk_summary.txt"
+POM_FILE = "pom.xml"
 
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
+HEADERS = {
+    "Authorization": f"Bearer {MISTRAL_API_KEY}",
+    "Content-Type": "application/json"
+}
 
 def read_summary(file_path):
     with open(file_path, "r") as f:
         return f.read()
 
-def read_pom(file_path):
-    with open(file_path, "r") as f:
+def read_pom():
+    with open(POM_FILE, "r") as f:
         return f.read()
 
-def generate_fixed_pom(vuln_summary, original_pom):
-    system_prompt = (
-        "You are a Java Maven security expert. Your job is to fix the vulnerable dependencies in the pom.xml "
-        "based on the given Snyk vulnerability summary. Update only the necessary dependencies. Do not add comments or explanations."
-    )
+def get_fix_from_mistral(summary, pom_content):
+    prompt = f"""You are an expert in Java and Maven.
+You are given a Snyk vulnerability summary and the contents of a pom.xml file.
+Update the pom.xml file to fix the vulnerabilities using the summary provided.
 
-    user_prompt = (
-        f"Snyk Vulnerability Summary:\n{vuln_summary}\n\nOriginal pom.xml:\n{original_pom}\n\n"
-        "Please return the updated pom.xml with fixed dependency versions."
-    )
+### Vulnerability Summary:
+{summary}
 
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
+### pom.xml:
+{pom_content}
 
-    payload = {
+### Fixed pom.xml (ONLY THE NEW CONTENT, NO EXPLANATION):"""
+
+    body = {
         "model": "mistral-small",
         "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            {"role": "system", "content": "You are a helpful AI that improves Java pom.xml files based on vulnerability summaries."},
+            {"role": "user", "content": prompt}
         ],
-        "temperature": 0.3
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "max_tokens": 2048
     }
 
-    for attempt in range(3):
-        try:
-            response = requests.post(MISTRAL_API_URL, json=payload, headers=headers)
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-            return content
-        except Exception as e:
-            print(f"Retry {attempt+1}/3 failed: {e}")
-            time.sleep(2)
-    raise RuntimeError("Failed to get response from Mistral API after 3 attempts.")
+    response = requests.post(MISTRAL_API_URL, headers=HEADERS, json=body)
+    response.raise_for_status()
+    result = response.json()
+    return result["choices"][0]["message"]["content"].strip()
 
-def write_fixed_pom(fixed_content):
-    with open(POM_FILE_PATH, "w") as f:
-        f.write(fixed_content)
+def create_branch_and_commit(new_pom):
+    github = Github(GITHUB_TOKEN)
+    repo = github.get_repo(REPO_NAME)
 
-def create_branch_and_pr(repo, token):
-    g = Github(token)
-    repository = g.get_repo(repo)
-    base = repository.get_branch("main")
-    branch_name = f"fix-pom-{int(time.time())}"
+    branch = "mistral-snyk-fix"
+    source = repo.get_branch("main")
 
-    ref = repository.create_git_ref(ref=f"refs/heads/{branch_name}", sha=base.commit.sha)
+    try:
+        repo.create_git_ref(ref=f"refs/heads/{branch}", sha=source.commit.sha)
+    except Exception as e:
+        print(f"Branch creation might have failed: {e}")
 
-    pom_content = repository.get_contents(POM_FILE_PATH, ref="refs/heads/" + branch_name)
-    with open(POM_FILE_PATH, "r") as f:
-        updated_content = f.read()
-
-    repository.update_file(
-        path=POM_FILE_PATH,
-        message="fix: update vulnerable dependencies in pom.xml",
-        content=updated_content,
-        sha=pom_content.sha,
-        branch=branch_name
+    pom_path = POM_FILE
+    pom_file = repo.get_contents(pom_path, ref=branch)
+    repo.update_file(
+        pom_path,
+        "fix: update pom.xml based on Snyk vulnerabilities",
+        new_pom,
+        pom_file.sha,
+        branch=branch
     )
 
-    repository.create_pull(
-        title="Fix: Vulnerable Dependencies in pom.xml",
-        body="This PR addresses vulnerabilities as per Snyk report.",
-        head=branch_name,
+    repo.create_pull(
+        title="fix: auto-update pom.xml via Mistral AI",
+        body="This PR includes automatic fixes to `pom.xml` based on Snyk vulnerabilities using Mistral AI.",
+        head=branch,
         base="main"
     )
 
 if __name__ == "__main__":
-    vuln_summary = read_summary(SNYK_SUMMARY_PATH)
-    original_pom = read_pom(POM_FILE_PATH)
-    fixed_pom = generate_fixed_pom(vuln_summary, original_pom)
-    write_fixed_pom(fixed_pom)
-    create_branch_and_pr(REPO_NAME, GITHUB_TOKEN)
+    summary_text = read_summary(SNYK_SUMMARY_PATH)
+    pom_text = read_pom()
+    fixed_pom = get_fix_from_mistral(summary_text, pom_text)
+    create_branch_and_commit(fixed_pom)
