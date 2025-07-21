@@ -1,7 +1,6 @@
 import os
 import sys
 import re
-import json
 import requests
 from github import Github, GithubException
 
@@ -44,7 +43,7 @@ Do not explain. Only return the version.
     if response.status_code == 200:
         return response.json()["choices"][0]["message"]["content"].strip()
     else:
-        print("❌ Mistral API error:", response.text)
+        print("Mistral API error:", response.text)
         return None
 
 def update_pom_versions(pom_path: str, updates: list):
@@ -65,7 +64,7 @@ def create_branch_and_pr(repo_name: str, token: str):
     try:
         repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=base.commit.sha)
     except GithubException as e:
-        print("⚠️ Branch already exists or error:", e)
+        print("Branch already exists or error:", e)
 
     repo.create_file(
         path="pom1.xml",
@@ -87,7 +86,7 @@ if __name__ == "__main__":
 
     summary_lines = read_summary(summary_file)
     mistral_key = os.environ.get("MISTRAL_API_KEY")
-    github_token = os.environ.get("GITHUB_TOKEN")
+    github_token = os.environ.get("PERSONAL_ACCESS_TOKEN")
     repo = os.environ.get("GITHUB_REPO")
 
     updates = []
@@ -101,6 +100,6 @@ if __name__ == "__main__":
     if updates:
         update_pom_versions(pom_path, updates)
         create_branch_and_pr(repo, github_token)
-        print("✅ Fix PR created successfully.")
+        print("Fix PR created successfully.")
     else:
-        print("✅ No actionable updates found.")
+        print("No actionable updates found.")
