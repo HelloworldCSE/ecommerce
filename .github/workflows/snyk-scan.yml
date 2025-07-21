@@ -15,7 +15,7 @@ jobs:
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.PAT_FOR_GITHUB_ACTIONS }}
       GITHUB_REPO: ${{ github.repository }}
 
     steps:
@@ -57,15 +57,6 @@ jobs:
             echo "Summary generation failed." >> scripts/snyk-summary.txt
           }
 
-      - name: Validate summary creation
-        run: |
-          if [ -f scripts/snyk-summary.txt ]; then
-            echo "✅ Summary created"
-          else
-            echo "❌ ERROR: Summary not created"
-            exit 1
-          fi
-
       - name: Run Mistral Fix and Create PR
         run: |
           pip install requests PyGithub
@@ -79,22 +70,3 @@ jobs:
           name: snyk-summary
           path: scripts/snyk-summary.txt
           retention-days: 7
-
-      - name: Commit summary to main branch (optional)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -f scripts/snyk-summary.txt ]; then
-            git add scripts/snyk-summary.txt
-            if git diff --cached --quiet; then
-              echo "No changes to commit for summary report"
-            else
-              git commit -m "chore: update Snyk summary report [skip ci]"
-              git push || echo "⚠️ Push failed"
-            fi
-          else
-            echo "No summary file found to commit"
-
-      - name: Clean up temp files
-        if: always()
-        run: rm -f /tmp/snyk-results.json
