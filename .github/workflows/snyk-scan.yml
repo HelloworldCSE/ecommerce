@@ -29,9 +29,7 @@ jobs:
 
       - name: Make Maven wrapper executable
         run: |
-          if [ -f ./mvnw ]; then
-            chmod +x ./mvnw
-          fi
+          if [ -f ./mvnw ]; then chmod +x ./mvnw; fi
 
       - name: Run Snyk scan and save JSON results
         run: |
@@ -59,24 +57,12 @@ jobs:
             echo "Summary generation failed." >> scripts/snyk-summary.txt
           }
 
-      - name: Commit updated summary file
+      - name: Commit updated snyk-summary.txt if changed
         run: |
-          # Configure Git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # Stage only the summary file (make sure this matches your actual filename)
           git add scripts/snyk-summary.txt
-          
-          # Check if there are changes to commit
-          if git diff-index --quiet HEAD -- scripts/snyk-summary.txt; then
-            echo "No changes to summary file"
-          else
-            git commit -m "Update Snyk vulnerability summary [skip ci]"
-            echo "Summary file updated in Git"
-            # Push the change back to the repository
-            git push origin HEAD:${GITHUB_REF#refs/heads/}
-          fi
+          git diff --cached --quiet || (git commit -m "🔒 update: Snyk scan summary" && git push origin main)
 
       - name: Run Mistral Fix and Create PR
         run: |
