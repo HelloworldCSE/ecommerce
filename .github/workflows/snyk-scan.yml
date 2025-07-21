@@ -10,96 +10,45 @@ jobs:
 
     permissions:
       contents: write
-      pull-requests: write
-
-    env:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install Snyk CLI
-        run: npm install -g snyk@latest
-
-      - name: Make mvnw executable (if present)
-        run: |
-          if [ -f ./mvnw ]; then chmod +x ./mvnw; fi
-
-      - name: Run Snyk scan
-        run: |
-          snyk config set api="$SNYK_TOKEN"
-          snyk test --all-projects --json-file-output=/tmp/snyk-results.json --quiet || true
-
-      - name: Ensure JSON output exists
-        run: |
-          if [ -s /tmp/snyk-results.json ]; then
-            echo "Snyk results captured"
-          else
-            echo '{"ok":true,"vulnerabilities":[]}' > /tmp/snyk-results.json
-          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
-      - name: Generate human summary
-        id: generate-summary
+      - name: Install dependencies
         run: |
-          mkdir -p scripts
-          python scripts/summarize_snyk_report.py /tmp/snyk-results.json || {
-            echo "# Snyk Scan Summary" > scripts/snyk-summary.txt
-            echo "Summary generation failed." >> scripts/snyk-summary.txt
-          }
+          pip install requests PyGithub
 
-      - name: Verify summary file exists
+      - name: Set execute permissions
+        run: chmod +x scripts/*.py || true
+
+      - name: Run Snyk Test
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          if [ -f scripts/snyk-summary.txt ]; then
-            echo "Summary file created successfully"
-          else
-            echo "ERROR: Summary file not found"
-            exit 1
-          fi
+          curl -Lo snyk https://static.snyk.io/cli/latest/snyk-linux
+          chmod +x snyk
+          ./snyk test --all-projects --json > snyk-results.json
 
-      - name: Analyze Report and Create Fix PR if Needed
-        if: success()
+      - name: Summarize Snyk Report
+        run: |
+          python scripts/summarize_snyk_report.py snyk-results.json
+
+      - name: Run Auto Fix Script
         env:
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
         run: |
-          pip install requests PyGithub
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           python scripts/pom_fix_from_report.py scripts/snyk-summary.txt
 
-      - name: Upload summary artifact
+      - name: Upload Summary
         uses: actions/upload-artifact@v4
         with:
           name: snyk-summary
           path: scripts/snyk-summary.txt
-          retention-days: 7
-
-      - name: Commit summary to repo
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -f scripts/snyk-summary.txt ]; then
-            git add scripts/snyk-summary.txt
-            if git diff --cached --quiet; then
-              echo "No changes to commit for summary report"
-            else
-              git commit -m "chore: update Snyk summary report [skip ci]"
-              git push || echo "Push for summary report failed"
-            fi
-          else
-            echo "No summary file to commit"
-          fi
-
-      - name: Clean up JSON file
-        if: always()
-        run: |
-          rm -f /tmp/snyk-results.json
