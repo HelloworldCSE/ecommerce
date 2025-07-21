@@ -27,12 +27,6 @@ jobs:
       - name: Install Snyk CLI
         run: npm install -g snyk@latest
 
-      - name: Make Maven wrapper executable
-        run: |
-          if [ -f ./mvnw ]; then
-            chmod +x ./mvnw
-          fi
-
       - name: Run Snyk scan and save JSON results
         run: |
           snyk config set api="$SNYK_TOKEN"
@@ -43,7 +37,7 @@ jobs:
           if [ -s /tmp/snyk-results.json ]; then
             echo "✅ Snyk results captured"
           else
-            echo '{"runs":[]}' > /tmp/snyk-results.json
+            echo '{"ok":true,"vulnerabilities":[]}' > /tmp/snyk-results.json
           fi
 
       - name: Set up Python
@@ -63,17 +57,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # Using hyphen to match desired filename
+
           git add scripts/snyk-summary.txt
-          
-          if git diff-index --quiet HEAD -- scripts/snyk-summary.txt; then
+          if git diff --cached --quiet; then
             echo "No changes to summary file"
           else
             git commit -m "Update Snyk vulnerability summary [skip ci]"
-            echo "Summary file updated in Git"
-            git push
-          fi
+            git push origin main
+            echo "✅ Summary file committed and pushed"
+          }
 
       - name: Run Mistral Fix and Create PR
         run: |
