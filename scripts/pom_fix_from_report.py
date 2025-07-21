@@ -61,24 +61,46 @@ def create_branch_and_pr(repo_name: str, token: str):
     base = repo.get_branch("main")
     branch_name = "fix/snyk-auto-fix"
 
+    # Create the branch if it doesn’t exist
     try:
+        repo.get_git_ref(f"heads/{branch_name}")
+        print(f"🔁 Branch '{branch_name}' already exists.")
+    except GithubException:
+        print(f"🌿 Creating branch '{branch_name}' from 'main'")
         repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=base.commit.sha)
-    except GithubException as e:
-        print("Branch already exists or error:", e)
 
-    repo.create_file(
-        path="pom1.xml",
-        message="fix: update vulnerable dependencies [auto]",
-        content=open("pom1.xml").read(),
-        branch=branch_name
-    )
+    # Create or update pom1.xml in the branch
+    try:
+        contents = repo.get_contents("pom1.xml", ref=branch_name)
+        repo.update_file(
+            path="pom1.xml",
+            message="fix: update vulnerable dependencies [auto]",
+            content=open("pom1.xml").read(),
+            sha=contents.sha,
+            branch=branch_name
+        )
+        print("📝 Updated existing pom1.xml in branch.")
+    except GithubException:
+        repo.create_file(
+            path="pom1.xml",
+            message="fix: update vulnerable dependencies [auto]",
+            content=open("pom1.xml").read(),
+            branch=branch_name
+        )
+        print("📄 Created pom1.xml in branch.")
 
-    repo.create_pull(
-        title="Auto PR: Fix Snyk Vulnerabilities in pom.xml",
-        body="This PR updates vulnerable dependencies based on Snyk scan and Mistral suggestions.",
-        head=branch_name,
-        base="main"
-    )
+    # Create PR if it doesn’t exist
+    pulls = repo.get_pulls(state="open", head=f"{repo.owner.login}:{branch_name}", base="main")
+    if pulls.totalCount == 0:
+        repo.create_pull(
+            title="Auto PR: Fix Snyk Vulnerabilities in pom.xml",
+            body="This PR updates vulnerable dependencies based on Snyk scan and Mistral suggestions.",
+            head=branch_name,
+            base="main"
+        )
+        print("✅ Pull request created.")
+    else:
+        print("🔁 PR already exists.")
 
 if __name__ == "__main__":
     summary_file = sys.argv[1]
@@ -100,6 +122,6 @@ if __name__ == "__main__":
     if updates:
         update_pom_versions(pom_path, updates)
         create_branch_and_pr(repo, github_token)
-        print("Fix PR created successfully.")
+        print("✅ Fix PR created successfully.")
     else:
-        print("No actionable updates found.")
+        print("ℹ️ No actionable updates found.")
