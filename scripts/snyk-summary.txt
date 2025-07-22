@@ -1,1 +1,3 @@
+# Snyk Scan Summary
 
+✅ No vulnerabilities found.
