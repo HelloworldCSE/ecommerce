@@ -1,5 +1,6 @@
-import json
 import sys
+import json
+from pathlib import Path
 
 def summarize_vulnerabilities(report_json):
     summary_lines = ["# Snyk Scan Summary\n"]
@@ -14,10 +15,9 @@ def summarize_vulnerabilities(report_json):
         package = vuln.get("packageName", "Unknown package")
         version = vuln.get("version", "")
         from_path = " > ".join(vuln.get("from", [])) if vuln.get("from") else "Unknown path"
-
         summary_lines.append(f"- {severity} - {vuln_id} ({title}) in `{package}@{version}` via `{from_path}` (file: `{file_path}`)")
 
-    if len(vulnerabilities) == 0:
+    if not vulnerabilities:
         summary_lines.append("✅ No vulnerabilities found.")
 
     return "\n".join(summary_lines)
@@ -26,10 +26,11 @@ if __name__ == "__main__":
     input_file = sys.argv[1]
     output_file = "scripts/snyk-summary.txt"
 
-    with open(input_file, "r") as f:
-        data = json.load(f)
+    try:
+        with open(input_file, "r") as f:
+            report_json = json.load(f)
+        summary = summarize_vulnerabilities(report_json)
+    except Exception as e:
+        summary = "# Snyk Scan Summary\nSummary generation failed.\nError: " + str(e)
 
-    summary = summarize_vulnerabilities(data)
-
-    with open(output_file, "w") as f:
-        f.write(summary + "\n")
+    Path(output_file).write_text(summary)
