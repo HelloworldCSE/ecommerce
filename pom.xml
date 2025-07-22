@@ -8,8 +8,8 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.0.5</version> <!-- Updated to the latest secure version -->
-        <relativePath/> <!-- lookup parent from repository -->
+        <version>3.0.5</version>
+        <relativePath/>
     </parent>
 
     <groupId>com.wings1</groupId>
@@ -27,7 +27,7 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <version>3.0.5</version> <!-- Spring Boot BOM -->
+                <version>3.0.5</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -62,21 +62,9 @@
 
         <!-- JJWT (JSON Web Token) - Updated to latest secure version -->
         <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>0.11.5</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>0.11.5</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>0.11.5</version>
-            <scope>runtime</scope>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>4.3.0</version>
         </dependency>
 
         <!-- Lombok - Updated to latest version -->
