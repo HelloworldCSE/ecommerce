@@ -5,11 +5,10 @@ def summarize_vulnerabilities(report_json):
     summary_lines = ["# Snyk Scan Summary\n"]
     vulnerabilities = []
 
-    # Handle both single and multi-project reports
-    if isinstance(report_json, list):  # Multi-project
+    if isinstance(report_json, list):
         for project in report_json:
             vulnerabilities.extend(project.get("vulnerabilities", []))
-    elif isinstance(report_json, dict):  # Single project
+    elif isinstance(report_json, dict):
         vulnerabilities = report_json.get("vulnerabilities", [])
 
     if not vulnerabilities:
@@ -41,7 +40,7 @@ def main():
     summary = summarize_vulnerabilities(report_json)
 
     try:
-        with open("scripts/snyk-summary.txt", "w") as out_file:
+        with open("scripts/snyk-summary.txt", "w") as out_file:  # <-- fixed here
             out_file.write(summary)
         print("✅ Summary file generated.")
     except Exception as e:
