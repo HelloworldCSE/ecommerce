@@ -1,6 +1,7 @@
 import os
 import sys
 import requests
+import xml.etree.ElementTree as ET
 from github import Github
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
@@ -26,7 +27,7 @@ def read_pom():
 def get_fix_from_mistral(summary, pom_content):
     prompt = f"""You are an expert in Java and Maven.
 You are given a Snyk vulnerability summary and the contents of a pom.xml file.
-Update the pom.xml file to fix the vulnerabilities using the summary provided.
+Only return updated <dependency> blocks that should be changed or added.
 
 ### Vulnerability Summary:
 {summary}
@@ -34,7 +35,7 @@ Update the pom.xml file to fix the vulnerabilities using the summary provided.
 ### pom.xml:
 {pom_content}
 
-### Fixed pom.xml (ONLY THE NEW CONTENT, NO EXPLANATION):"""
+### Only the updated <dependency> XML blocks:"""
 
     body = {
         "model": "mistral-small",
@@ -52,6 +53,46 @@ Update the pom.xml file to fix the vulnerabilities using the summary provided.
     result = response.json()
     return result["choices"][0]["message"]["content"].strip()
 
+def update_pom_with_changes(original_pom, updated_dependencies_str):
+    try:
+        root = ET.fromstring(original_pom)
+        ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+        ET.register_namespace('', ns["m"])
+
+        dependencies_node = root.find(".//m:dependencies", ns)
+        if dependencies_node is None:
+            raise Exception("No <dependencies> section found in pom.xml.")
+
+        # Parse updated dependencies
+        updated_root = ET.fromstring(f"<dependencies>{updated_dependencies_str}</dependencies>")
+
+        updated = 0
+        for new_dep in updated_root:
+            new_gid = new_dep.find("groupId").text
+            new_aid = new_dep.find("artifactId").text
+            found = False
+
+            for old_dep in dependencies_node.findall("m:dependency", ns):
+                gid = old_dep.find("m:groupId", ns).text
+                aid = old_dep.find("m:artifactId", ns).text
+
+                if gid == new_gid and aid == new_aid:
+                    dependencies_node.remove(old_dep)
+                    dependencies_node.append(new_dep)
+                    found = True
+                    updated += 1
+                    break
+
+            if not found:
+                dependencies_node.append(new_dep)
+                updated += 1
+
+        return ET.tostring(root, encoding="unicode"), updated
+
+    except Exception as e:
+        print("Error while merging pom.xml:", e)
+        return original_pom, 0
+
 def create_branch_and_commit(new_pom):
     github = Github(GITHUB_TOKEN)
     repo = github.get_repo(REPO_NAME)
@@ -68,7 +109,7 @@ def create_branch_and_commit(new_pom):
     pom_file = repo.get_contents(pom_path, ref=branch)
     repo.update_file(
         pom_path,
-        "fix: update pom.xml based on Snyk vulnerabilities",
+        "fix: update pom.xml dependencies based on Snyk vulnerabilities",
         new_pom,
         pom_file.sha,
         branch=branch
@@ -76,7 +117,7 @@ def create_branch_and_commit(new_pom):
 
     repo.create_pull(
         title="fix: auto-update pom.xml via Mistral AI",
-        body="This PR includes automatic fixes to `pom.xml` based on Snyk vulnerabilities using Mistral AI.",
+        body="This PR includes automatic fixes to `pom.xml` dependencies based on Snyk vulnerabilities using Mistral AI.",
         head=branch,
         base="main"
     )
@@ -84,5 +125,12 @@ def create_branch_and_commit(new_pom):
 if __name__ == "__main__":
     summary_text = read_summary(SNYK_SUMMARY_PATH)
     pom_text = read_pom()
-    fixed_pom = get_fix_from_mistral(summary_text, pom_text)
-    create_branch_and_commit(fixed_pom)
+    mistral_response = get_fix_from_mistral(summary_text, pom_text)
+    updated_pom, updated_count = update_pom_with_changes(pom_text, mistral_response)
+
+    if updated_count > 0:
+        print(f"✅ Applied {updated_count} dependency updates")
+    else:
+        print("⚠️ No matching dependencies were updated")
+
+    create_branch_and_commit(updated_pom)
