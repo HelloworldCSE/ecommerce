@@ -30,7 +30,12 @@ jobs:
       - name: Run Snyk scan and save JSON results
         run: |
           snyk config set api="$SNYK_TOKEN"
-          snyk test --file=pom.xml --json-file-output=/tmp/snyk-results.json --debug || true
+          snyk test --file=pom.xml --json-file-output=/tmp/snyk-results.json --quiet || true
+
+      - name: Dump snyk-results.json for debugging
+        run: |
+          echo "--- Snyk JSON Output ---"
+          cat /tmp/snyk-results.json || echo "No file found"
 
       - name: Ensure JSON output exists
         run: |
