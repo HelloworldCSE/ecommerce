@@ -15,18 +15,17 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-def read_summary(file_path):
+
+def read_file(file_path):
     with open(file_path, "r") as f:
         return f.read()
 
-def read_pom():
-    with open(POM_FILE, "r") as f:
-        return f.read()
 
 def get_fix_from_mistral(summary, pom_content):
     prompt = f"""You are an expert in Java and Maven.
 You are given a Snyk vulnerability summary and the contents of a pom.xml file.
 Update the pom.xml file to fix the vulnerabilities using the summary provided.
+If no changes are needed, return the pom.xml content exactly as is without adding any comments.
 
 ### Vulnerability Summary:
 {summary}
@@ -34,7 +33,7 @@ Update the pom.xml file to fix the vulnerabilities using the summary provided.
 ### pom.xml:
 {pom_content}
 
-### Fixed pom.xml (ONLY THE NEW CONTENT, NO EXPLANATION):"""
+### Fixed pom.xml (ONLY THE UPDATED CONTENT, NO EXPLANATION):"""
 
     body = {
         "model": "mistral-small",
@@ -52,7 +51,12 @@ Update the pom.xml file to fix the vulnerabilities using the summary provided.
     result = response.json()
     return result["choices"][0]["message"]["content"].strip()
 
-def create_branch_and_commit(new_pom):
+
+def create_branch_and_commit(new_pom, original_pom):
+    if new_pom.strip() == original_pom.strip():
+        print("✅ No changes needed in pom.xml. Skipping commit and PR.")
+        return
+
     github = Github(GITHUB_TOKEN)
     repo = github.get_repo(REPO_NAME)
 
@@ -62,12 +66,11 @@ def create_branch_and_commit(new_pom):
     try:
         repo.create_git_ref(ref=f"refs/heads/{branch}", sha=source.commit.sha)
     except Exception as e:
-        print(f"Branch creation might have failed: {e}")
+        print(f"Branch might already exist: {e}")
 
-    pom_path = POM_FILE
-    pom_file = repo.get_contents(pom_path, ref=branch)
+    pom_file = repo.get_contents(POM_FILE, ref=branch)
     repo.update_file(
-        pom_path,
+        POM_FILE,
         "fix: update pom.xml based on Snyk vulnerabilities",
         new_pom,
         pom_file.sha,
@@ -80,9 +83,11 @@ def create_branch_and_commit(new_pom):
         head=branch,
         base="main"
     )
+    print("✅ PR created successfully.")
+
 
 if __name__ == "__main__":
-    summary_text = read_summary(SNYK_SUMMARY_PATH)
-    pom_text = read_pom()
-    fixed_pom = get_fix_from_mistral(summary_text, pom_text)
-    create_branch_and_commit(fixed_pom)
+    summary_text = read_file(SNYK_SUMMARY_PATH)
+    original_pom = read_file(POM_FILE)
+    fixed_pom = get_fix_from_mistral(summary_text, original_pom)
+    create_branch_and_commit(fixed_pom, original_pom)
