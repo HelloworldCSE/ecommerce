@@ -54,7 +54,7 @@ Return only the updated full pom.xml content — do not explain anything.
             {"role": "system", "content": "You are a helpful AI that improves Java pom.xml files based on vulnerability summaries."},
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.5,
+        "temperature": 0.2,
         "top_p": 0.9,
         "max_tokens": 2048
     }
