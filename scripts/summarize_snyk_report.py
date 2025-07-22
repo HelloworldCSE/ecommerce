@@ -3,23 +3,22 @@ import json
 
 def summarize_vulnerabilities(report_json):
     summary_lines = ["# Snyk Scan Summary\n"]
-    vulnerabilities = []
 
-    if isinstance(report_json, list):
-        for project in report_json:
-            vulnerabilities.extend(project.get("vulnerabilities", []))
-    elif isinstance(report_json, dict):
-        vulnerabilities = report_json.get("vulnerabilities", [])
+    vulnerabilities = report_json.get("vulnerabilities", [])
 
-    if not vulnerabilities:
+    for vuln in vulnerabilities:
+        severity = vuln.get("severity", "unknown").upper()
+        vuln_id = vuln.get("id", "N/A")
+        title = vuln.get("title", "No title")
+        package = vuln.get("package", "Unknown package")
+        version = vuln.get("version", "")
+        from_path = " > ".join(vuln.get("from", [])) if vuln.get("from") else "Unknown path"
+        file_path = vuln.get("file", "Unknown file")
+
+        summary_lines.append(f"- {severity} - {vuln_id} ({title}) in `{package}@{version}` via `{from_path}` (file: `{file_path}`)")
+
+    if len(summary_lines) == 1:
         summary_lines.append("✅ No vulnerabilities found.")
-    else:
-        for vuln in vulnerabilities:
-            severity = vuln.get("severity", "UNKNOWN").upper()
-            title = vuln.get("title", "Untitled")
-            package = vuln.get("package", "unknown")
-            version = vuln.get("version", "")
-            summary_lines.append(f"- **{severity}** - {title} ({package}@{version})")
 
     return "\n".join(summary_lines)
 
@@ -30,22 +29,17 @@ def main():
 
     json_path = sys.argv[1]
 
-    try:
-        with open(json_path, "r") as f:
+    with open(json_path, "r") as f:
+        try:
             report_json = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"Error reading or parsing JSON: {e}")
-        sys.exit(1)
+        except json.JSONDecodeError:
+            print("Invalid JSON input.")
+            sys.exit(1)
 
     summary = summarize_vulnerabilities(report_json)
 
-    try:
-        with open("scripts/snyk-summary.txt", "w") as out_file:  # <-- fixed here
-            out_file.write(summary)
-        print("✅ Summary file generated.")
-    except Exception as e:
-        print(f"Error writing summary file: {e}")
-        sys.exit(1)
+    with open("scripts/snyk-summary.txt", "w") as out_file:
+        out_file.write(summary)
 
 if __name__ == "__main__":
     main()
