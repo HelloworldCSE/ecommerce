@@ -24,29 +24,17 @@ def read_pom():
         return f.read()
 
 def get_fix_from_mistral(summary, pom_content):
-    prompt = f"""You are an expert in Java, Spring Boot, and Maven dependency management.
-
-You are given:
-1. A summary of vulnerabilities detected in a pom.xml file.
-2. The original pom.xml content of a Spring Boot project.
-
-Your task:
-- Update the pom.xml to fix all listed vulnerabilities.
-- Ensure the resulting pom.xml maintains compatibility with Spring Boot.
-- Avoid downgrading essential Spring Boot dependencies unless necessary.
-- Use the Spring Boot BOM (Bill of Materials) if applicable.
-- Ensure that the fixed pom.xml will not break the build or runtime behavior of a standard Spring Boot application.
-- Do not remove required dependencies such as spring-boot-starter or other autoconfigured modules.
-
-Return only the updated full pom.xml content — do not explain anything.
+    prompt = f"""You are an expert in Java and Maven.
+You are given a Snyk vulnerability summary and the contents of a pom.xml file.
+Update the pom.xml file to fix the vulnerabilities using the summary provided.
 
 ### Vulnerability Summary:
 {summary}
 
-### Original pom.xml:
+### pom.xml:
 {pom_content}
 
-### Updated and Compatible pom.xml (FULL, READY TO USE):"""
+### Fixed pom.xml (ONLY THE NEW CONTENT, NO EXPLANATION):"""
 
     body = {
         "model": "mistral-small",
